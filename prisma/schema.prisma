@@ -1,0 +1,166 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User roles: ADMIN, MEMBER, GUEST (stored as String in SQLite)
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  fullName      String?
+  role          String    @default("GUEST")
+  isActive      Boolean   @default(true)
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Contact info (required for all users)
+  phone         String?
+  address       String?
+  city          String?
+  state         String?
+  zipCode       String?
+
+  // Admin-specific fields (required when role is ADMIN)
+  ministryRole    String?
+  responsibility  String?
+  officePhone     String?
+
+  // Relations
+  sessions          Session[]
+  accounts          Account[]
+  fellowshipGroups  FellowshipGroup[]
+  memberships       FellowshipMembership[]
+  joinRequests      GroupJoinRequest[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Fellowship Group Module
+// Membership roles: LEADER, MEMBER
+model FellowshipGroup {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  schedule    String?   // e.g., "Every Sunday 10:00 AM"
+  imageUrl    String?
+  maxMembers  Int       @default(20)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String
+
+  createdBy    User                   @relation(fields: [createdById], references: [id])
+  members      FellowshipMembership[]
+  events       Event[]
+  joinRequests GroupJoinRequest[]
+}
+
+model FellowshipMembership {
+  id        String   @id @default(cuid())
+  userId    String
+  groupId   String
+  role      String   @default("MEMBER")  // LEADER or MEMBER
+  joinedAt  DateTime @default(now())
+
+  user  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group FellowshipGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, groupId])
+}
+
+// Join request status: PENDING, APPROVED, REJECTED
+model GroupJoinRequest {
+  id        String   @id @default(cuid())
+  userId    String
+  groupId   String
+  status    String   @default("PENDING")  // PENDING, APPROVED, REJECTED
+  message   String?  // Optional message from requester
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group FellowshipGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, groupId])
+}
+
+// Events for homepage
+model Event {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  imageUrl    String?
+  startDate   DateTime
+  endDate     DateTime?
+  location    String?
+  groupId     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  group FellowshipGroup? @relation(fields: [groupId], references: [id])
+}
+
+// Photo Gallery
+model Photo {
+  id          String   @id @default(cuid())
+  title       String?
+  url         String
+  description String?
+  createdAt   DateTime @default(now())
+}
+
+// Contact submissions
+model Contact {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  subject   String?
+  message   String
+  createdAt DateTime @default(now())
+  isRead    Boolean  @default(false)
+}
+
