@@ -12,6 +12,7 @@ interface UserProfile {
   role: string
   image: string | null
   createdAt: string
+  joinedAt: string | null
   phone: string | null
   address: string | null
   city: string | null
@@ -357,7 +358,7 @@ export default function ProfilePage() {
               <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Account Information</h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <InfoItem label="Member Since" value={profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString() : null} />
+                  <InfoItem label="Member Since" value={profile?.joinedAt ? new Date(profile.joinedAt).toLocaleDateString() : (profile?.role === "GUEST" ? "Not a member yet" : null)} />
                   <InfoItem label="Role" value={profile?.role} />
                 </div>
               </div>

@@ -6,7 +6,7 @@ const prisma = new PrismaClient()
 async function main() {
   const hashedPassword = await bcrypt.hash("123Abc!", 12)
 
-  // 2 ADMIN accounts
+  // 2 ADMIN accounts (createdAt <= joinedAt, joinedAt = membership approval date)
   const admins = [
     {
       email: "admin1@example.com",
@@ -20,6 +20,8 @@ async function main() {
       spouseGender: "FEMALE",
       isBaptized: true,
       whenBaptized: new Date("1995-04-15"),
+      createdAt: new Date("2009-11-01"), // Account created before joining
+      joinedAt: new Date("2010-01-15"), // Founding pastor
       ministryRole: "Senior Pastor",
       responsibility: "Pastoral care, preaching, and church leadership",
       officePhone: "555-0001-EXT1",
@@ -36,13 +38,15 @@ async function main() {
       spouseGender: "MALE",
       isBaptized: true,
       whenBaptized: new Date("2000-06-20"),
+      createdAt: new Date("2015-04-15"), // Account created before joining
+      joinedAt: new Date("2015-06-01"), // Joined as admin later
       ministryRole: "Church Administrator",
       responsibility: "Membership management, events coordination, and admin support",
       officePhone: "555-0002-EXT2",
     },
   ]
 
-  // 7 GUEST accounts (original 5 + 2 new)
+  // 7 GUEST accounts (original 5 + 2 new) - createdAt within last 5 years, no joinedAt
   const guests = [
     {
       email: "guest1@example.com",
@@ -54,6 +58,7 @@ async function main() {
       zipCode: "62701",
       marriedStatus: "SINGLE",
       isBaptized: false,
+      createdAt: new Date("2024-06-15"), // 6 months ago
     },
     {
       email: "guest2@example.com",
@@ -67,6 +72,7 @@ async function main() {
       spouseGender: "FEMALE",
       isBaptized: true,
       whenBaptized: new Date("2020-06-15"),
+      createdAt: new Date("2024-09-01"), // 3 months ago
     },
     {
       email: "guest3@example.com",
@@ -78,6 +84,7 @@ async function main() {
       zipCode: "73301",
       marriedStatus: "DIVORCED",
       isBaptized: false,
+      createdAt: new Date("2023-03-20"), // ~2 years ago
     },
     {
       email: "guest4@example.com",
@@ -90,6 +97,7 @@ async function main() {
       marriedStatus: "WIDOWED",
       isBaptized: true,
       whenBaptized: new Date("2015-03-22"),
+      createdAt: new Date("2024-11-25"), // 2 weeks ago
     },
     {
       email: "guest5@example.com",
@@ -101,6 +109,7 @@ async function main() {
       zipCode: "98101",
       marriedStatus: "SINGLE",
       isBaptized: false,
+      createdAt: new Date("2024-11-20"), // 3 weeks ago
     },
     {
       email: "guest6@example.com",
@@ -113,6 +122,7 @@ async function main() {
       marriedStatus: "SINGLE",
       isBaptized: true,
       whenBaptized: new Date("2023-01-15"),
+      createdAt: new Date("2021-08-10"), // ~4 years ago
     },
     {
       email: "guest7@example.com",
@@ -124,10 +134,11 @@ async function main() {
       zipCode: "18503",
       marriedStatus: "DIVORCED",
       isBaptized: false,
+      createdAt: new Date("2022-05-15"), // ~2.5 years ago
     },
   ]
 
-  // 15 MEMBER accounts (original 10 + 5 new)
+  // 15 MEMBER accounts (original 10 + 5 new) - createdAt <= joinedAt, joinedAt = membership approval date
   const members = [
     {
       email: "member1@example.com",
@@ -141,6 +152,8 @@ async function main() {
       spouseGender: "FEMALE",
       isBaptized: true,
       whenBaptized: new Date("2018-04-10"),
+      createdAt: new Date("2018-03-15"), // Account created before membership
+      joinedAt: new Date("2018-05-01"), // Approved shortly after baptism
     },
     {
       email: "member2@example.com",
@@ -153,6 +166,8 @@ async function main() {
       marriedStatus: "SINGLE",
       isBaptized: true,
       whenBaptized: new Date("2019-08-25"),
+      createdAt: new Date("2019-08-01"), // Account created before transfer
+      joinedAt: new Date("2019-09-15"), // Transfer-in approved
     },
     {
       email: "member3@example.com",
@@ -166,6 +181,8 @@ async function main() {
       spouseGender: "FEMALE",
       isBaptized: true,
       whenBaptized: new Date("2017-12-01"),
+      createdAt: new Date("2017-11-15"),
+      joinedAt: new Date("2018-01-10"),
     },
     {
       email: "member4@example.com",
@@ -178,6 +195,8 @@ async function main() {
       marriedStatus: "DIVORCED",
       isBaptized: true,
       whenBaptized: new Date("2016-07-14"),
+      createdAt: new Date("2016-06-01"),
+      joinedAt: new Date("2016-08-20"),
     },
     {
       email: "member5@example.com",
@@ -191,6 +210,8 @@ async function main() {
       spouseGender: "FEMALE",
       isBaptized: true,
       whenBaptized: new Date("2021-01-30"),
+      createdAt: new Date("2021-01-15"),
+      joinedAt: new Date("2021-03-01"),
     },
     {
       email: "member6@example.com",
@@ -203,6 +224,8 @@ async function main() {
       marriedStatus: "SINGLE",
       isBaptized: true,
       whenBaptized: new Date("2020-11-08"),
+      createdAt: new Date("2020-10-20"),
+      joinedAt: new Date("2020-12-15"),
     },
     {
       email: "member7@example.com",
@@ -215,6 +238,8 @@ async function main() {
       marriedStatus: "WIDOWED",
       isBaptized: true,
       whenBaptized: new Date("2010-05-20"),
+      createdAt: new Date("2010-04-01"), // Long-time member
+      joinedAt: new Date("2010-06-01"),
     },
     {
       email: "member8@example.com",
@@ -228,10 +253,12 @@ async function main() {
       spouseGender: "MALE",
       isBaptized: true,
       whenBaptized: new Date("2019-02-14"),
+      createdAt: new Date("2019-01-20"),
+      joinedAt: new Date("2019-03-10"),
     },
   ]
 
-  // Continue members array
+  // Continue members array - createdAt <= joinedAt
   const moreMembers = [
     {
       email: "member9@example.com",
@@ -244,6 +271,8 @@ async function main() {
       marriedStatus: "SINGLE",
       isBaptized: true,
       whenBaptized: new Date("2022-06-18"),
+      createdAt: new Date("2022-05-01"),
+      joinedAt: new Date("2022-07-20"),
     },
     {
       email: "member10@example.com",
@@ -257,6 +286,8 @@ async function main() {
       spouseGender: "MALE",
       isBaptized: true,
       whenBaptized: new Date("2018-09-05"),
+      createdAt: new Date("2018-08-15"),
+      joinedAt: new Date("2018-10-15"),
     },
     {
       email: "member11@example.com",
@@ -269,6 +300,8 @@ async function main() {
       marriedStatus: "SINGLE",
       isBaptized: true,
       whenBaptized: new Date("2021-03-28"),
+      createdAt: new Date("2021-02-15"),
+      joinedAt: new Date("2021-05-01"),
     },
     {
       email: "member12@example.com",
@@ -282,6 +315,8 @@ async function main() {
       spouseGender: "MALE",
       isBaptized: true,
       whenBaptized: new Date("2019-07-12"),
+      createdAt: new Date("2019-06-01"),
+      joinedAt: new Date("2019-08-25"),
     },
     {
       email: "member13@example.com",
@@ -294,6 +329,8 @@ async function main() {
       marriedStatus: "WIDOWED",
       isBaptized: true,
       whenBaptized: new Date("2005-11-20"),
+      createdAt: new Date("2012-01-10"), // Long-time member
+      joinedAt: new Date("2012-03-15"),
     },
     {
       email: "member14@example.com",
@@ -306,6 +343,8 @@ async function main() {
       marriedStatus: "SINGLE",
       isBaptized: true,
       whenBaptized: new Date("2020-08-15"),
+      createdAt: new Date("2020-07-20"),
+      joinedAt: new Date("2020-09-20"),
     },
     {
       email: "member15@example.com",
@@ -319,6 +358,8 @@ async function main() {
       spouseGender: "FEMALE",
       isBaptized: true,
       whenBaptized: new Date("2017-05-30"),
+      createdAt: new Date("2017-05-01"),
+      joinedAt: new Date("2017-07-01"),
     },
   ]
 
@@ -390,7 +431,7 @@ async function main() {
   const member2 = await prisma.user.findUnique({ where: { email: "member2@example.com" } })
 
   const membershipRequests = [
-    // SUBMITTED - pending review (new membership)
+    // SUBMITTED - pending review (new membership) - submitted 2 weeks ago
     {
       userId: guest1?.id,
       category: "MEMBERSHIP",
@@ -399,8 +440,9 @@ async function main() {
       status: "SUBMITTED",
       reason: "Got baptized recently",
       testimony: "I accepted Christ as my Savior last year and was baptized in June. I have been attending this church for 6 months and feel called to become a full member. The community here has been so welcoming and I want to commit to growing in faith together.",
+      createdAt: new Date("2024-11-20"),
     },
-    // SUBMITTED - pending review (transfer-in)
+    // SUBMITTED - pending review (transfer-in) - submitted 1 week ago
     {
       userId: guest2?.id,
       category: "MEMBERSHIP",
@@ -410,8 +452,9 @@ async function main() {
       reason: "Transferred from other church",
       previousChurch: "First Baptist Church, Columbus OH",
       testimony: "My family and I moved to this area 3 months ago. We were active members at First Baptist Church for over 10 years. We are excited to join this community and continue serving the Lord here.",
+      createdAt: new Date("2024-11-28"),
     },
-    // APPROVED - new membership
+    // APPROVED - new membership (matches member1 joinedAt: 2018-05-01)
     {
       userId: member1?.id,
       category: "MEMBERSHIP",
@@ -420,10 +463,11 @@ async function main() {
       status: "APPROVED",
       reason: "Got baptized recently",
       testimony: "I was baptized in April 2018 after a year of attending Bible study. This church has been instrumental in my spiritual growth and I am grateful to be part of this family.",
-      reviewedAt: new Date("2018-05-01"),
+      createdAt: new Date("2018-04-15"), // Submitted 2 weeks before approval
+      reviewedAt: new Date("2018-05-01"), // Same as joinedAt
       reviewNote: "Welcome to our church family! Your testimony is inspiring.",
     },
-    // APPROVED - transfer-in membership
+    // APPROVED - transfer-in membership (matches member2 joinedAt: 2019-09-15)
     {
       userId: member2?.id,
       category: "MEMBERSHIP",
@@ -433,10 +477,11 @@ async function main() {
       reason: "Transferred from other church",
       previousChurch: "Grace Community Church, Tucson AZ",
       testimony: "After relocating for work, I searched for a church that teaches the Word faithfully. I found this church and immediately felt at home. I look forward to serving and growing here.",
-      reviewedAt: new Date("2019-09-10"),
+      createdAt: new Date("2019-08-28"), // Submitted 2.5 weeks before approval
+      reviewedAt: new Date("2019-09-15"), // Same as joinedAt
       reviewNote: "Transfer approved. We received confirmation from Grace Community Church.",
     },
-    // DECLINED - new membership
+    // DECLINED - new membership - submitted 2 months ago, declined 1 month ago
     {
       userId: guest3?.id,
       category: "MEMBERSHIP",
@@ -445,10 +490,11 @@ async function main() {
       status: "DECLINED",
       reason: "Got baptized recently",
       testimony: "I want to join the church.",
-      reviewedAt: new Date("2024-01-15"),
+      createdAt: new Date("2024-10-01"),
+      reviewedAt: new Date("2024-10-15"),
       reviewNote: "Thank you for your interest. We encourage you to attend our New Members class first and provide a more detailed testimony of your faith journey. Please reapply after completing the class.",
     },
-    // INITIAL - draft (not yet submitted)
+    // INITIAL - draft (not yet submitted) - created 3 days ago
     {
       userId: guest4?.id,
       category: "MEMBERSHIP",
@@ -457,8 +503,9 @@ async function main() {
       status: "INITIAL",
       reason: "Got baptized recently",
       testimony: "I was baptized many years ago and have been...", // incomplete draft
+      createdAt: new Date("2024-12-02"),
     },
-    // SUBMITTED - transfer-in pending
+    // SUBMITTED - transfer-in pending - submitted 5 days ago
     {
       userId: guest5?.id,
       category: "MEMBERSHIP",
@@ -468,6 +515,7 @@ async function main() {
       reason: "Transferred from other church",
       previousChurch: "Hillside Chapel, Bellevue WA",
       testimony: "I have been a member of Hillside Chapel for 5 years where I served in the worship team and children's ministry. Due to a job change, I have relocated and am seeking to transfer my membership to continue serving the Lord.",
+      createdAt: new Date("2024-12-01"),
     },
   ]
 

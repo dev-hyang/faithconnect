@@ -20,6 +20,7 @@ interface User {
   responsibility: string | null
   officePhone: string | null
   createdAt: string
+  joinedAt: string | null
 }
 
 export default function AdminUsersPage() {
@@ -184,7 +185,7 @@ export default function AdminUsersPage() {
                   <div><p className="text-sm text-gray-500">Role</p><p className="font-medium text-gray-900 dark:text-white">{selectedUser.role}</p></div>
                   <div><p className="text-sm text-gray-500">Status</p><p className={`font-medium ${selectedUser.isActive ? "text-green-600" : "text-red-600"}`}>{selectedUser.isActive ? "Active" : "Inactive"}</p></div>
                   <div><p className="text-sm text-gray-500">Phone</p><p className="font-medium text-gray-900 dark:text-white">{selectedUser.phone || "N/A"}</p></div>
-                  <div><p className="text-sm text-gray-500">Joined</p><p className="font-medium text-gray-900 dark:text-white">{new Date(selectedUser.createdAt).toLocaleDateString()}</p></div>
+                  <div><p className="text-sm text-gray-500">Joined</p><p className="font-medium text-gray-900 dark:text-white">{selectedUser.joinedAt ? new Date(selectedUser.joinedAt).toLocaleDateString() : (selectedUser.role === "GUEST" ? "Not a member" : "N/A")}</p></div>
                 </div>
                 <div className="pt-4 border-t dark:border-gray-700">
                   <p className="text-sm text-gray-500">Address</p>

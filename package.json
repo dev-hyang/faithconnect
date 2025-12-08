@@ -3,13 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "npm run db:setup && next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest",
     "test:run": "vitest run",
-    "db:seed": "npx tsx prisma/seed.ts"
+    "db:setup": "npx tsx scripts/setup-db.ts",
+    "db:seed": "npx tsx prisma/seed.ts",
+    "db:reset": "npx rimraf prisma/dev.db prisma/dev.db-journal && npm run db:setup",
+    "db:studio": "npx prisma studio",
+    "postinstall": "npx prisma generate"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"
@@ -37,6 +41,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.0.7",
     "jsdom": "^24.1.0",
+    "rimraf": "^6.1.2",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5",

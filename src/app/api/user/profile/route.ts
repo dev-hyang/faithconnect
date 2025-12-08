@@ -29,6 +29,7 @@ export async function GET() {
         role: true,
         image: true,
         createdAt: true,
+        joinedAt: true,
         // Contact info
         phone: true,
         address: true,
@@ -235,6 +236,7 @@ export async function PUT(request: NextRequest) {
         role: true,
         image: true,
         createdAt: true,
+        joinedAt: true,
         phone: true,
         address: true,
         city: true,

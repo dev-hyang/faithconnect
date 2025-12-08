@@ -25,6 +25,7 @@ model User {
   image         String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+  joinedAt      DateTime? // Membership approved date (null for GUEST, set when approved)
 
   // Contact info (required for all users)
   phone         String?

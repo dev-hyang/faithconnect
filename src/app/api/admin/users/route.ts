@@ -34,6 +34,7 @@ export async function GET(request: Request) {
         isActive: true,
         phone: true,
         createdAt: true,
+        joinedAt: true,
       },
       orderBy: { createdAt: "desc" },
     })
@@ -111,6 +112,7 @@ export async function PUT(request: Request) {
         isActive: true,
         phone: true,
         createdAt: true,
+        joinedAt: true,
       },
     })
 

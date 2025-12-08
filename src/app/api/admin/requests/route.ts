@@ -91,17 +91,23 @@ export async function PUT(request: Request) {
       },
     })
 
-    // If approved membership request, update user role
+    // If approved membership request, update user role and joinedAt
     if (status === "APPROVED" && existingRequest.category === "MEMBERSHIP") {
       if (existingRequest.requestType === "APPLY_NEW" || existingRequest.requestType === "TRANSFER_IN") {
         await prisma.user.update({
           where: { id: existingRequest.userId },
-          data: { role: "MEMBER" },
+          data: {
+            role: "MEMBER",
+            joinedAt: new Date(), // Set membership approval date
+          },
         })
       } else if (existingRequest.requestType === "TRANSFER_OUT") {
         await prisma.user.update({
           where: { id: existingRequest.userId },
-          data: { role: "GUEST" },
+          data: {
+            role: "GUEST",
+            joinedAt: null, // Clear joinedAt when transferring out
+          },
         })
       }
     }
