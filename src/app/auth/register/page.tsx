@@ -26,20 +26,26 @@ export default function RegisterPage() {
     city: "",
     state: "",
     zipCode: "",
-    isAdmin: false,
-    ministryRole: "",
-    responsibility: "",
-    officePhone: "",
+    // Gender and faith info
+    gender: "",
+    isBaptized: false,
+    whenBaptized: "",
+    marriedStatus: "",
+    spouseGender: "",
+    // Apply for membership
+    applyForMembership: false,
+    faithStatement: "",
+    attendsRegularly: false,
   })
   const [error, setError] = useState("")
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target
     if (type === "checkbox") {
       setFormData({ ...formData, [name]: (e.target as HTMLInputElement).checked })
-    } else if (name === "phone" || name === "officePhone") {
+    } else if (name === "phone") {
       // Auto-format phone numbers
       setFormData({ ...formData, [name]: formatPhoneNumber(value) })
     } else {
@@ -84,17 +90,31 @@ export default function RegisterPage() {
       errors.address = "Address is required"
     }
 
-    // Admin fields
-    if (formData.isAdmin) {
-      if (!formData.ministryRole) errors.ministryRole = "Ministry role is required"
-      if (!formData.responsibility) errors.responsibility = "Responsibility is required"
-      if (formData.officePhone) {
-        const officePhoneValidation = validatePhone(formData.officePhone)
-        if (!officePhoneValidation.valid) {
-          errors.officePhone = officePhoneValidation.message || "Invalid phone"
-        }
-      } else {
-        errors.officePhone = "Office phone is required"
+    // Gender is required
+    if (!formData.gender) {
+      errors.gender = "Gender is required"
+    }
+
+    // Spouse gender required if married
+    if (formData.marriedStatus === "MARRIED" && !formData.spouseGender) {
+      errors.spouseGender = "Spouse gender is required when married"
+    }
+
+    // When baptized required if baptized is checked
+    if (formData.isBaptized && !formData.whenBaptized) {
+      errors.whenBaptized = "Please provide your baptism date"
+    }
+
+    // Member application fields
+    if (formData.applyForMembership) {
+      if (!formData.isBaptized) {
+        errors.isBaptized = "Baptism is required for membership"
+      }
+      if (!formData.faithStatement) {
+        errors.faithStatement = "Please share your faith statement"
+      }
+      if (!formData.attendsRegularly) {
+        errors.attendsRegularly = "You must confirm regular attendance"
       }
     }
 
@@ -119,10 +139,13 @@ export default function RegisterPage() {
           city: formData.city,
           state: formData.state,
           zipCode: formData.zipCode,
-          isAdmin: formData.isAdmin,
-          ministryRole: formData.ministryRole,
-          responsibility: formData.responsibility,
-          officePhone: formData.officePhone,
+          gender: formData.gender,
+          isBaptized: formData.isBaptized,
+          whenBaptized: formData.whenBaptized || null,
+          marriedStatus: formData.marriedStatus || null,
+          spouseGender: formData.spouseGender || null,
+          applyForMembership: formData.applyForMembership,
+          faithStatement: formData.faithStatement || null,
         }),
       })
 
@@ -133,7 +156,11 @@ export default function RegisterPage() {
         return
       }
 
-      router.push("/auth/login?registered=true")
+      // If user applied for membership, show appropriate message
+      const redirectUrl = formData.applyForMembership
+        ? "/auth/login?registered=true&membership=pending"
+        : "/auth/login?registered=true"
+      router.push(redirectUrl)
     } catch {
       setError("An error occurred. Please try again.")
     } finally {
@@ -142,6 +169,7 @@ export default function RegisterPage() {
   }
 
   const inputClass = "w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition"
+  const selectClass = "w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition"
   const inputErrorClass = "w-full px-4 py-3 border border-red-500 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition"
   const hintClass = "text-xs text-gray-500 dark:text-gray-400 mt-1"
   const errorTextClass = "text-xs text-red-500 mt-1"
@@ -261,45 +289,111 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          {/* Admin Registration Section */}
+          {/* Personal Info Section */}
+          <div className="border-t dark:border-gray-700 pt-5 mt-5">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Personal Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="gender" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Gender <span className="text-red-500">*</span>
+                </label>
+                <select id="gender" name="gender" value={formData.gender} onChange={handleChange} required className={fieldErrors.gender ? inputErrorClass : selectClass}>
+                  <option value="">Select Gender</option>
+                  <option value="MALE">Male</option>
+                  <option value="FEMALE">Female</option>
+                </select>
+                {fieldErrors.gender && <p className={errorTextClass}>{fieldErrors.gender}</p>}
+              </div>
+              <div>
+                <label htmlFor="marriedStatus" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Married Status
+                </label>
+                <select id="marriedStatus" name="marriedStatus" value={formData.marriedStatus} onChange={handleChange} className={selectClass}>
+                  <option value="">Select Status</option>
+                  <option value="SINGLE">Single</option>
+                  <option value="MARRIED">Married</option>
+                  <option value="WIDOWED">Widowed</option>
+                  <option value="DIVORCED">Divorced</option>
+                </select>
+              </div>
+            </div>
+            {formData.marriedStatus === "MARRIED" && (
+              <div className="mt-4">
+                <label htmlFor="spouseGender" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Spouse Gender <span className="text-red-500">*</span>
+                </label>
+                <select id="spouseGender" name="spouseGender" value={formData.spouseGender} onChange={handleChange} className={fieldErrors.spouseGender ? inputErrorClass : selectClass}>
+                  <option value="">Select Spouse Gender</option>
+                  <option value="MALE">Male</option>
+                  <option value="FEMALE">Female</option>
+                </select>
+                {fieldErrors.spouseGender && <p className={errorTextClass}>{fieldErrors.spouseGender}</p>}
+              </div>
+            )}
+          </div>
+
+          {/* Faith Info Section */}
+          <div className="border-t dark:border-gray-700 pt-5 mt-5">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Faith Information</h3>
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <input id="isBaptized" name="isBaptized" type="checkbox" checked={formData.isBaptized} onChange={handleChange} className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
+                <label htmlFor="isBaptized" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  I have been baptized
+                </label>
+              </div>
+              {fieldErrors.isBaptized && <p className={errorTextClass}>{fieldErrors.isBaptized}</p>}
+              {formData.isBaptized && (
+                <div>
+                  <label htmlFor="whenBaptized" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    When were you baptized? <span className="text-red-500">*</span>
+                  </label>
+                  <input id="whenBaptized" name="whenBaptized" type="date" value={formData.whenBaptized} onChange={handleChange} className={fieldErrors.whenBaptized ? inputErrorClass : inputClass} />
+                  {fieldErrors.whenBaptized && <p className={errorTextClass}>{fieldErrors.whenBaptized}</p>}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Membership Application Section */}
           <div className="border-t dark:border-gray-700 pt-5 mt-5">
             <div className="flex items-center gap-3 mb-4">
-              <input id="isAdmin" name="isAdmin" type="checkbox" checked={formData.isAdmin} onChange={handleChange} className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
-              <label htmlFor="isAdmin" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Register as Church Admin/Staff
+              <input id="applyForMembership" name="applyForMembership" type="checkbox" checked={formData.applyForMembership} onChange={handleChange} className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
+              <label htmlFor="applyForMembership" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Apply for Church Membership
               </label>
             </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+              Check this box if you want to apply for membership. Your application will be reviewed by church administration.
+            </p>
 
-            {formData.isAdmin && (
+            {formData.applyForMembership && (
               <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg space-y-4">
                 <p className="text-sm text-blue-700 dark:text-blue-300 mb-4">
-                  Please provide your ministry information. All fields are required for admin registration.
+                  Please provide your faith statement and confirm your commitment. Your membership request will be sent to the church administration for review.
                 </p>
                 <div>
-                  <label htmlFor="ministryRole" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Ministry Role <span className="text-red-500">*</span>
+                  <label htmlFor="faithStatement" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Faith Statement / Testimony <span className="text-red-500">*</span>
                   </label>
-                  <input id="ministryRole" name="ministryRole" type="text" value={formData.ministryRole} onChange={handleChange} className={fieldErrors.ministryRole ? inputErrorClass : inputClass} placeholder="e.g., Pastor, Elder, Deacon" />
-                  {fieldErrors.ministryRole && <p className={errorTextClass}>{fieldErrors.ministryRole}</p>}
+                  <textarea
+                    id="faithStatement"
+                    name="faithStatement"
+                    value={formData.faithStatement}
+                    onChange={handleChange}
+                    rows={4}
+                    className={fieldErrors.faithStatement ? inputErrorClass : inputClass}
+                    placeholder="Please share your faith journey, when you accepted Christ, and why you want to become a member of our church..."
+                  />
+                  {fieldErrors.faithStatement && <p className={errorTextClass}>{fieldErrors.faithStatement}</p>}
                 </div>
-                <div>
-                  <label htmlFor="responsibility" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Responsibility <span className="text-red-500">*</span>
+                <div className="flex items-center gap-3">
+                  <input id="attendsRegularly" name="attendsRegularly" type="checkbox" checked={formData.attendsRegularly} onChange={handleChange} className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
+                  <label htmlFor="attendsRegularly" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    I confirm that I attend church services regularly <span className="text-red-500">*</span>
                   </label>
-                  <input id="responsibility" name="responsibility" type="text" value={formData.responsibility} onChange={handleChange} className={fieldErrors.responsibility ? inputErrorClass : inputClass} placeholder="e.g., Youth Ministry, Worship Team Lead" />
-                  {fieldErrors.responsibility && <p className={errorTextClass}>{fieldErrors.responsibility}</p>}
                 </div>
-                <div>
-                  <label htmlFor="officePhone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Office Phone <span className="text-red-500">*</span>
-                  </label>
-                  <input id="officePhone" name="officePhone" type="tel" value={formData.officePhone} onChange={handleChange} className={fieldErrors.officePhone ? inputErrorClass : inputClass} placeholder="(101) 202-0001" />
-                  {fieldErrors.officePhone ? (
-                    <p className={errorTextClass}>{fieldErrors.officePhone}</p>
-                  ) : (
-                    <p className={hintClass}>{PHONE_FORMAT_HINT}</p>
-                  )}
-                </div>
+                {fieldErrors.attendsRegularly && <p className={errorTextClass}>{fieldErrors.attendsRegularly}</p>}
               </div>
             )}
           </div>
