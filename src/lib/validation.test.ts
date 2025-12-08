@@ -24,10 +24,14 @@ describe('validateEmail', () => {
 })
 
 describe('validatePassword', () => {
-  it('should return valid for passwords with 6 or more characters', () => {
-    expect(validatePassword('123456')).toEqual({ valid: true })
-    expect(validatePassword('password123')).toEqual({ valid: true })
-    expect(validatePassword('securePassword!')).toEqual({ valid: true })
+  it('should return valid for passwords meeting all requirements', () => {
+    const result = validatePassword('1234Abc!')
+    expect(result.valid).toBe(true)
+  })
+
+  it('should return valid for strong passwords', () => {
+    const result = validatePassword('SecureP@ss1')
+    expect(result.valid).toBe(true)
   })
 
   it('should return invalid for empty password', () => {
@@ -37,15 +41,34 @@ describe('validatePassword', () => {
     })
   })
 
-  it('should return invalid for passwords shorter than 6 characters', () => {
-    expect(validatePassword('12345')).toEqual({
-      valid: false,
-      message: 'Password must be at least 6 characters',
-    })
-    expect(validatePassword('abc')).toEqual({
-      valid: false,
-      message: 'Password must be at least 6 characters',
-    })
+  it('should return invalid for passwords shorter than 8 characters', () => {
+    const result = validatePassword('1Abc!')
+    expect(result.valid).toBe(false)
+    expect(result.message).toContain('at least 8 characters')
+  })
+
+  it('should return invalid for passwords without uppercase', () => {
+    const result = validatePassword('1234abc!')
+    expect(result.valid).toBe(false)
+    expect(result.message).toContain('1 uppercase letter')
+  })
+
+  it('should return invalid for passwords without lowercase', () => {
+    const result = validatePassword('1234ABC!')
+    expect(result.valid).toBe(false)
+    expect(result.message).toContain('1 lowercase letter')
+  })
+
+  it('should return invalid for passwords without number', () => {
+    const result = validatePassword('Abcdefgh!')
+    expect(result.valid).toBe(false)
+    expect(result.message).toContain('1 number')
+  })
+
+  it('should return invalid for passwords without special character', () => {
+    const result = validatePassword('1234Abcd')
+    expect(result.valid).toBe(false)
+    expect(result.message).toContain('1 special character')
   })
 })
 
@@ -53,7 +76,7 @@ describe('validateRegistration', () => {
   it('should return valid for correct registration data', () => {
     const result = validateRegistration({
       email: 'test@example.com',
-      password: 'password123',
+      password: '1234Abc!',
       fullName: 'John Doe',
     })
     expect(result.valid).toBe(true)
@@ -62,7 +85,7 @@ describe('validateRegistration', () => {
 
   it('should return errors for missing email', () => {
     const result = validateRegistration({
-      password: 'password123',
+      password: '1234Abc!',
     })
     expect(result.valid).toBe(false)
     expect(result.errors.email).toBe('Email is required')
@@ -71,10 +94,10 @@ describe('validateRegistration', () => {
   it('should return errors for invalid email format', () => {
     const result = validateRegistration({
       email: 'invalid-email',
-      password: 'password123',
+      password: '1234Abc!',
     })
     expect(result.valid).toBe(false)
-    expect(result.errors.email).toBe('Invalid email format')
+    expect(result.errors.email).toContain('Invalid email format')
   })
 
   it('should return errors for missing password', () => {
@@ -91,8 +114,8 @@ describe('validateRegistration', () => {
       password: 'abc',
     })
     expect(result.valid).toBe(false)
-    expect(result.errors.email).toBe('Invalid email format')
-    expect(result.errors.password).toBe('Password must be at least 6 characters')
+    expect(result.errors.email).toContain('Invalid email format')
+    expect(result.errors.password).toContain('Password must contain')
   })
 })
 

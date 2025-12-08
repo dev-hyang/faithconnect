@@ -11,18 +11,21 @@ datasource db {
 }
 
 // User roles: ADMIN, MEMBER, GUEST (stored as String in SQLite)
+// Married status: SINGLE, MARRIED, WIDOWED, DIVORCED (stored as String in SQLite)
+// Spouse gender: MALE, FEMALE (stored as String in SQLite)
 
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
   password      String
   fullName      String?
-  role          String    @default("GUEST")
+  role          String    @default("GUEST")  // ADMIN, MEMBER, GUEST
   isActive      Boolean   @default(true)
   emailVerified DateTime?
   image         String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+  joinedAt      DateTime? // Membership approved date (null for GUEST, set when approved)
 
   // Contact info (required for all users)
   phone         String?
@@ -31,17 +34,26 @@ model User {
   state         String?
   zipCode       String?
 
+  // Faith-related fields
+  gender        String?   // MALE, FEMALE (required for all users)
+  isBaptized    Boolean   @default(false)
+  whenBaptized  DateTime?
+  marriedStatus String?   // SINGLE, MARRIED, WIDOWED, DIVORCED
+  spouseGender  String?   // MALE, FEMALE (required if married)
+
   // Admin-specific fields (required when role is ADMIN)
   ministryRole    String?
   responsibility  String?
   officePhone     String?
 
   // Relations
-  sessions          Session[]
-  accounts          Account[]
-  fellowshipGroups  FellowshipGroup[]
-  memberships       FellowshipMembership[]
-  joinRequests      GroupJoinRequest[]
+  sessions            Session[]
+  accounts            Account[]
+  fellowshipGroups    FellowshipGroup[]
+  memberships         FellowshipMembership[]
+  joinRequests        GroupJoinRequest[]
+  membershipRequests  MembershipRequest[]
+  userRequests        UserRequest[]
 }
 
 model Account {
@@ -164,3 +176,46 @@ model Contact {
   isRead    Boolean  @default(false)
 }
 
+// User Requests - consolidated request system
+// Category: MEMBERSHIP, GROUP
+// Request Types for MEMBERSHIP: APPLY_NEW, TRANSFER_IN, TRANSFER_OUT
+// Request Types for GROUP: JOIN_GROUP, LEAVE_GROUP
+// Status: INITIAL (draft), SUBMITTED, APPROVED, DECLINED
+model UserRequest {
+  id              String   @id @default(cuid())
+  userId          String
+  category        String   // MEMBERSHIP, GROUP
+  requestType     String   // APPLY_NEW, TRANSFER_IN, TRANSFER_OUT, JOIN_GROUP, LEAVE_GROUP
+  title           String   // Display title for the request
+  status          String   @default("INITIAL")  // INITIAL, SUBMITTED, APPROVED, DECLINED
+  reason          String?  // Why applying (e.g., "Got baptized", "Transferred from other church")
+  testimony       String?  // Detailed faith journey testimony
+  previousChurch  String?  // For TRANSFER_IN requests
+  targetChurch    String?  // For TRANSFER_OUT requests
+  groupId         String?  // For GROUP category requests
+  groupName       String?  // Group name for display
+  reviewedBy      String?  // Admin who reviewed
+  reviewedAt      DateTime?
+  reviewNote      String?  // Admin's note
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Legacy model - keeping for backward compatibility
+model MembershipRequest {
+  id              String   @id @default(cuid())
+  userId          String
+  requestType     String   // APPLY, TRANSFER
+  status          String   @default("PENDING")  // PENDING, APPROVED, DECLINED
+  message         String?  // Optional message from requester
+  previousChurch  String?  // For TRANSFER requests
+  reviewedBy      String?  // Admin who reviewed
+  reviewedAt      DateTime?
+  reviewNote      String?  // Admin's note
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

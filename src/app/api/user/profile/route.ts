@@ -3,7 +3,12 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 
-// GET - Get current user profile
+// Valid values for enums
+const VALID_ROLES = ["ADMIN", "MEMBER", "GUEST"]
+const VALID_MARRIED_STATUS = ["SINGLE", "MARRIED", "WIDOWED", "DIVORCED"]
+const VALID_SPOUSE_GENDER = ["MALE", "FEMALE"]
+
+// GET - Get current user profile with all fields
 export async function GET() {
   try {
     const session = await auth()
@@ -24,6 +29,22 @@ export async function GET() {
         role: true,
         image: true,
         createdAt: true,
+        joinedAt: true,
+        // Contact info
+        phone: true,
+        address: true,
+        city: true,
+        state: true,
+        zipCode: true,
+        // Faith-related fields
+        isBaptized: true,
+        whenBaptized: true,
+        marriedStatus: true,
+        spouseGender: true,
+        // Admin-specific fields
+        ministryRole: true,
+        responsibility: true,
+        officePhone: true,
       },
     })
 
@@ -44,6 +65,25 @@ export async function GET() {
   }
 }
 
+// Define update data type
+interface ProfileUpdateData {
+  email?: string
+  fullName?: string
+  password?: string
+  phone?: string
+  address?: string
+  city?: string
+  state?: string
+  zipCode?: string
+  isBaptized?: boolean
+  whenBaptized?: Date | null
+  marriedStatus?: string | null
+  spouseGender?: string | null
+  ministryRole?: string | null
+  responsibility?: string | null
+  officePhone?: string | null
+}
+
 // PUT - Update user profile
 export async function PUT(request: NextRequest) {
   try {
@@ -56,13 +96,31 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    const { email, fullName, currentPassword, newPassword } = await request.json()
+    const body = await request.json()
+    const {
+      email,
+      fullName,
+      currentPassword,
+      newPassword,
+      phone,
+      address,
+      city,
+      state,
+      zipCode,
+      isBaptized,
+      whenBaptized,
+      marriedStatus,
+      spouseGender,
+      ministryRole,
+      responsibility,
+      officePhone,
+    } = body
 
     // Prepare update data
-    const updateData: { email?: string; fullName?: string; password?: string } = {}
+    const updateData: ProfileUpdateData = {}
 
+    // Email update
     if (email) {
-      // Check if email is already taken by another user
       const existingUser = await prisma.user.findFirst({
         where: {
           email,
@@ -76,12 +134,68 @@ export async function PUT(request: NextRequest) {
           { status: 400 }
         )
       }
-
       updateData.email = email
     }
 
-    if (fullName !== undefined) {
-      updateData.fullName = fullName
+    // Basic info
+    if (fullName !== undefined) updateData.fullName = fullName
+
+    // Contact info
+    if (phone !== undefined) updateData.phone = phone
+    if (address !== undefined) updateData.address = address
+    if (city !== undefined) updateData.city = city
+    if (state !== undefined) updateData.state = state
+    if (zipCode !== undefined) updateData.zipCode = zipCode
+
+    // Faith-related fields
+    if (isBaptized !== undefined) updateData.isBaptized = isBaptized
+    if (whenBaptized !== undefined) {
+      updateData.whenBaptized = whenBaptized ? new Date(whenBaptized) : null
+    }
+
+    // Validate and set marriedStatus
+    if (marriedStatus !== undefined) {
+      if (marriedStatus && !VALID_MARRIED_STATUS.includes(marriedStatus)) {
+        return NextResponse.json(
+          { error: `Invalid married status. Must be one of: ${VALID_MARRIED_STATUS.join(", ")}` },
+          { status: 400 }
+        )
+      }
+      updateData.marriedStatus = marriedStatus || null
+    }
+
+    // Validate spouseGender - required if married
+    if (spouseGender !== undefined) {
+      if (spouseGender && !VALID_SPOUSE_GENDER.includes(spouseGender)) {
+        return NextResponse.json(
+          { error: `Invalid spouse gender. Must be one of: ${VALID_SPOUSE_GENDER.join(", ")}` },
+          { status: 400 }
+        )
+      }
+      updateData.spouseGender = spouseGender || null
+    }
+
+    // Validate: if married, spouse gender is required
+    const effectiveMarriedStatus = marriedStatus !== undefined ? marriedStatus : body.currentMarriedStatus
+    const effectiveSpouseGender = spouseGender !== undefined ? spouseGender : body.currentSpouseGender
+
+    if (effectiveMarriedStatus === "MARRIED" && !effectiveSpouseGender) {
+      return NextResponse.json(
+        { error: "Spouse gender is required when married status is MARRIED" },
+        { status: 400 }
+      )
+    }
+
+    // Admin-specific fields (only update if user is admin)
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, password: true },
+    })
+
+    if (currentUser?.role === "ADMIN") {
+      if (ministryRole !== undefined) updateData.ministryRole = ministryRole
+      if (responsibility !== undefined) updateData.responsibility = responsibility
+      if (officePhone !== undefined) updateData.officePhone = officePhone
     }
 
     // Handle password change
@@ -93,18 +207,14 @@ export async function PUT(request: NextRequest) {
         )
       }
 
-      const user = await prisma.user.findUnique({
-        where: { id: session.user.id },
-      })
-
-      if (!user) {
+      if (!currentUser) {
         return NextResponse.json(
           { error: "User not found" },
           { status: 404 }
         )
       }
 
-      const isPasswordValid = await bcrypt.compare(currentPassword, user.password)
+      const isPasswordValid = await bcrypt.compare(currentPassword, currentUser.password)
 
       if (!isPasswordValid) {
         return NextResponse.json(
@@ -125,6 +235,20 @@ export async function PUT(request: NextRequest) {
         fullName: true,
         role: true,
         image: true,
+        createdAt: true,
+        joinedAt: true,
+        phone: true,
+        address: true,
+        city: true,
+        state: true,
+        zipCode: true,
+        isBaptized: true,
+        whenBaptized: true,
+        marriedStatus: true,
+        spouseGender: true,
+        ministryRole: true,
+        responsibility: true,
+        officePhone: true,
       },
     })
 
@@ -140,4 +264,7 @@ export async function PUT(request: NextRequest) {
     )
   }
 }
+
+// Export valid values for client-side use
+export { VALID_ROLES, VALID_MARRIED_STATUS, VALID_SPOUSE_GENDER }
 

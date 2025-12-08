@@ -3,6 +3,16 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import {
+  validatePassword,
+  validatePhone,
+  getEmailValidation,
+  getPasswordStrength,
+  formatPhoneNumber,
+  PHONE_FORMAT_HINT,
+  EMAIL_FORMAT_HINT,
+  PASSWORD_FORMAT_HINT,
+} from "@/lib/validation"
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -16,47 +26,102 @@ export default function RegisterPage() {
     city: "",
     state: "",
     zipCode: "",
-    isAdmin: false,
-    ministryRole: "",
-    responsibility: "",
-    officePhone: "",
+    // Gender and faith info
+    gender: "",
+    isBaptized: false,
+    whenBaptized: "",
+    marriedStatus: "",
+    spouseGender: "",
+    // Apply for membership
+    applyForMembership: false,
+    faithStatement: "",
+    attendsRegularly: false,
   })
   const [error, setError] = useState("")
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target
     if (type === "checkbox") {
       setFormData({ ...formData, [name]: (e.target as HTMLInputElement).checked })
+    } else if (name === "phone") {
+      // Auto-format phone numbers
+      setFormData({ ...formData, [name]: formatPhoneNumber(value) })
     } else {
       setFormData({ ...formData, [name]: value })
+    }
+    // Clear field error when user starts typing
+    if (fieldErrors[name]) {
+      setFieldErrors({ ...fieldErrors, [name]: "" })
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+    const errors: Record<string, string> = {}
 
+    // Email validation
+    const emailValidation = getEmailValidation(formData.email)
+    if (!emailValidation.valid) {
+      errors.email = emailValidation.message || "Invalid email"
+    }
+
+    // Password validation
+    const passwordValidation = validatePassword(formData.password)
+    if (!passwordValidation.valid) {
+      errors.password = passwordValidation.message || "Invalid password"
+    }
+
+    // Confirm password
     if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match")
-      return
+      errors.confirmPassword = "Passwords do not match"
     }
 
-    if (formData.password.length < 6) {
-      setError("Password must be at least 6 characters")
-      return
+    // Phone validation
+    const phoneValidation = validatePhone(formData.phone)
+    if (!phoneValidation.valid) {
+      errors.phone = phoneValidation.message || "Invalid phone"
     }
 
-    if (!formData.phone || !formData.address) {
-      setError("Phone and address are required")
-      return
+    // Address required
+    if (!formData.address) {
+      errors.address = "Address is required"
     }
 
-    if (formData.isAdmin) {
-      if (!formData.ministryRole || !formData.responsibility || !formData.officePhone) {
-        setError("All ministry fields are required for admin registration")
-        return
+    // Gender is required
+    if (!formData.gender) {
+      errors.gender = "Gender is required"
+    }
+
+    // Spouse gender required if married
+    if (formData.marriedStatus === "MARRIED" && !formData.spouseGender) {
+      errors.spouseGender = "Spouse gender is required when married"
+    }
+
+    // When baptized required if baptized is checked
+    if (formData.isBaptized && !formData.whenBaptized) {
+      errors.whenBaptized = "Please provide your baptism date"
+    }
+
+    // Member application fields
+    if (formData.applyForMembership) {
+      if (!formData.isBaptized) {
+        errors.isBaptized = "Baptism is required for membership"
       }
+      if (!formData.faithStatement) {
+        errors.faithStatement = "Please share your faith statement"
+      }
+      if (!formData.attendsRegularly) {
+        errors.attendsRegularly = "You must confirm regular attendance"
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
+      setError("Please fix the errors below")
+      return
     }
 
     setLoading(true)
@@ -74,10 +139,13 @@ export default function RegisterPage() {
           city: formData.city,
           state: formData.state,
           zipCode: formData.zipCode,
-          isAdmin: formData.isAdmin,
-          ministryRole: formData.ministryRole,
-          responsibility: formData.responsibility,
-          officePhone: formData.officePhone,
+          gender: formData.gender,
+          isBaptized: formData.isBaptized,
+          whenBaptized: formData.whenBaptized || null,
+          marriedStatus: formData.marriedStatus || null,
+          spouseGender: formData.spouseGender || null,
+          applyForMembership: formData.applyForMembership,
+          faithStatement: formData.faithStatement || null,
         }),
       })
 
@@ -88,7 +156,11 @@ export default function RegisterPage() {
         return
       }
 
-      router.push("/auth/login?registered=true")
+      // If user applied for membership, show appropriate message
+      const redirectUrl = formData.applyForMembership
+        ? "/auth/login?registered=true&membership=pending"
+        : "/auth/login?registered=true"
+      router.push(redirectUrl)
     } catch {
       setError("An error occurred. Please try again.")
     } finally {
@@ -97,6 +169,17 @@ export default function RegisterPage() {
   }
 
   const inputClass = "w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition"
+  const selectClass = "w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition"
+  const inputErrorClass = "w-full px-4 py-3 border border-red-500 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition"
+  const hintClass = "text-xs text-gray-500 dark:text-gray-400 mt-1"
+  const errorTextClass = "text-xs text-red-500 mt-1"
+
+  const passwordStrength = getPasswordStrength(formData.password)
+  const strengthColors = {
+    weak: "bg-red-500",
+    medium: "bg-yellow-500",
+    strong: "bg-green-500",
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 px-4 py-8">
@@ -125,7 +208,12 @@ export default function RegisterPage() {
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Email Address <span className="text-red-500">*</span>
               </label>
-              <input id="email" name="email" type="email" value={formData.email} onChange={handleChange} required className={inputClass} placeholder="you@example.com" />
+              <input id="email" name="email" type="email" value={formData.email} onChange={handleChange} required className={fieldErrors.email ? inputErrorClass : inputClass} placeholder="you@example.com" />
+              {fieldErrors.email ? (
+                <p className={errorTextClass}>{fieldErrors.email}</p>
+              ) : (
+                <p className={hintClass}>{EMAIL_FORMAT_HINT}</p>
+              )}
             </div>
           </div>
 
@@ -134,13 +222,31 @@ export default function RegisterPage() {
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Password <span className="text-red-500">*</span>
               </label>
-              <input id="password" name="password" type="password" value={formData.password} onChange={handleChange} required className={inputClass} placeholder="••••••••" />
+              <input id="password" name="password" type="password" value={formData.password} onChange={handleChange} required className={fieldErrors.password ? inputErrorClass : inputClass} placeholder="••••••••" />
+              {formData.password && (
+                <div className="mt-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div className={`h-full ${strengthColors[passwordStrength.strength]} transition-all`} style={{ width: `${(passwordStrength.score / 6) * 100}%` }} />
+                    </div>
+                    <span className={`text-xs ${passwordStrength.strength === "weak" ? "text-red-500" : passwordStrength.strength === "medium" ? "text-yellow-500" : "text-green-500"}`}>
+                      {passwordStrength.strength.charAt(0).toUpperCase() + passwordStrength.strength.slice(1)}
+                    </span>
+                  </div>
+                </div>
+              )}
+              {fieldErrors.password ? (
+                <p className={errorTextClass}>{fieldErrors.password}</p>
+              ) : (
+                <p className={hintClass}>{PASSWORD_FORMAT_HINT}</p>
+              )}
             </div>
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Confirm Password <span className="text-red-500">*</span>
               </label>
-              <input id="confirmPassword" name="confirmPassword" type="password" value={formData.confirmPassword} onChange={handleChange} required className={inputClass} placeholder="••••••••" />
+              <input id="confirmPassword" name="confirmPassword" type="password" value={formData.confirmPassword} onChange={handleChange} required className={fieldErrors.confirmPassword ? inputErrorClass : inputClass} placeholder="••••••••" />
+              {fieldErrors.confirmPassword && <p className={errorTextClass}>{fieldErrors.confirmPassword}</p>}
             </div>
           </div>
 
@@ -152,13 +258,19 @@ export default function RegisterPage() {
                 <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Phone <span className="text-red-500">*</span>
                 </label>
-                <input id="phone" name="phone" type="tel" value={formData.phone} onChange={handleChange} required className={inputClass} placeholder="(555) 123-4567" />
+                <input id="phone" name="phone" type="tel" value={formData.phone} onChange={handleChange} required className={fieldErrors.phone ? inputErrorClass : inputClass} placeholder="(101) 202-0001" />
+                {fieldErrors.phone ? (
+                  <p className={errorTextClass}>{fieldErrors.phone}</p>
+                ) : (
+                  <p className={hintClass}>{PHONE_FORMAT_HINT}</p>
+                )}
               </div>
               <div>
                 <label htmlFor="address" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Street Address <span className="text-red-500">*</span>
                 </label>
-                <input id="address" name="address" type="text" value={formData.address} onChange={handleChange} required className={inputClass} placeholder="123 Main St" />
+                <input id="address" name="address" type="text" value={formData.address} onChange={handleChange} required className={fieldErrors.address ? inputErrorClass : inputClass} placeholder="123 Main St" />
+                {fieldErrors.address && <p className={errorTextClass}>{fieldErrors.address}</p>}
               </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
@@ -177,38 +289,111 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          {/* Admin Registration Section */}
+          {/* Personal Info Section */}
+          <div className="border-t dark:border-gray-700 pt-5 mt-5">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Personal Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="gender" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Gender <span className="text-red-500">*</span>
+                </label>
+                <select id="gender" name="gender" value={formData.gender} onChange={handleChange} required className={fieldErrors.gender ? inputErrorClass : selectClass}>
+                  <option value="">Select Gender</option>
+                  <option value="MALE">Male</option>
+                  <option value="FEMALE">Female</option>
+                </select>
+                {fieldErrors.gender && <p className={errorTextClass}>{fieldErrors.gender}</p>}
+              </div>
+              <div>
+                <label htmlFor="marriedStatus" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Married Status
+                </label>
+                <select id="marriedStatus" name="marriedStatus" value={formData.marriedStatus} onChange={handleChange} className={selectClass}>
+                  <option value="">Select Status</option>
+                  <option value="SINGLE">Single</option>
+                  <option value="MARRIED">Married</option>
+                  <option value="WIDOWED">Widowed</option>
+                  <option value="DIVORCED">Divorced</option>
+                </select>
+              </div>
+            </div>
+            {formData.marriedStatus === "MARRIED" && (
+              <div className="mt-4">
+                <label htmlFor="spouseGender" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Spouse Gender <span className="text-red-500">*</span>
+                </label>
+                <select id="spouseGender" name="spouseGender" value={formData.spouseGender} onChange={handleChange} className={fieldErrors.spouseGender ? inputErrorClass : selectClass}>
+                  <option value="">Select Spouse Gender</option>
+                  <option value="MALE">Male</option>
+                  <option value="FEMALE">Female</option>
+                </select>
+                {fieldErrors.spouseGender && <p className={errorTextClass}>{fieldErrors.spouseGender}</p>}
+              </div>
+            )}
+          </div>
+
+          {/* Faith Info Section */}
+          <div className="border-t dark:border-gray-700 pt-5 mt-5">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Faith Information</h3>
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <input id="isBaptized" name="isBaptized" type="checkbox" checked={formData.isBaptized} onChange={handleChange} className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
+                <label htmlFor="isBaptized" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  I have been baptized
+                </label>
+              </div>
+              {fieldErrors.isBaptized && <p className={errorTextClass}>{fieldErrors.isBaptized}</p>}
+              {formData.isBaptized && (
+                <div>
+                  <label htmlFor="whenBaptized" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    When were you baptized? <span className="text-red-500">*</span>
+                  </label>
+                  <input id="whenBaptized" name="whenBaptized" type="date" value={formData.whenBaptized} onChange={handleChange} className={fieldErrors.whenBaptized ? inputErrorClass : inputClass} />
+                  {fieldErrors.whenBaptized && <p className={errorTextClass}>{fieldErrors.whenBaptized}</p>}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Membership Application Section */}
           <div className="border-t dark:border-gray-700 pt-5 mt-5">
             <div className="flex items-center gap-3 mb-4">
-              <input id="isAdmin" name="isAdmin" type="checkbox" checked={formData.isAdmin} onChange={handleChange} className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
-              <label htmlFor="isAdmin" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Register as Church Admin/Staff
+              <input id="applyForMembership" name="applyForMembership" type="checkbox" checked={formData.applyForMembership} onChange={handleChange} className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
+              <label htmlFor="applyForMembership" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Apply for Church Membership
               </label>
             </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+              Check this box if you want to apply for membership. Your application will be reviewed by church administration.
+            </p>
 
-            {formData.isAdmin && (
+            {formData.applyForMembership && (
               <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg space-y-4">
                 <p className="text-sm text-blue-700 dark:text-blue-300 mb-4">
-                  Please provide your ministry information. All fields are required for admin registration.
+                  Please provide your faith statement and confirm your commitment. Your membership request will be sent to the church administration for review.
                 </p>
                 <div>
-                  <label htmlFor="ministryRole" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Ministry Role <span className="text-red-500">*</span>
+                  <label htmlFor="faithStatement" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Faith Statement / Testimony <span className="text-red-500">*</span>
                   </label>
-                  <input id="ministryRole" name="ministryRole" type="text" value={formData.ministryRole} onChange={handleChange} className={inputClass} placeholder="e.g., Pastor, Elder, Deacon" />
+                  <textarea
+                    id="faithStatement"
+                    name="faithStatement"
+                    value={formData.faithStatement}
+                    onChange={handleChange}
+                    rows={4}
+                    className={fieldErrors.faithStatement ? inputErrorClass : inputClass}
+                    placeholder="Please share your faith journey, when you accepted Christ, and why you want to become a member of our church..."
+                  />
+                  {fieldErrors.faithStatement && <p className={errorTextClass}>{fieldErrors.faithStatement}</p>}
                 </div>
-                <div>
-                  <label htmlFor="responsibility" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Responsibility <span className="text-red-500">*</span>
+                <div className="flex items-center gap-3">
+                  <input id="attendsRegularly" name="attendsRegularly" type="checkbox" checked={formData.attendsRegularly} onChange={handleChange} className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
+                  <label htmlFor="attendsRegularly" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    I confirm that I attend church services regularly <span className="text-red-500">*</span>
                   </label>
-                  <input id="responsibility" name="responsibility" type="text" value={formData.responsibility} onChange={handleChange} className={inputClass} placeholder="e.g., Youth Ministry, Worship Team Lead" />
                 </div>
-                <div>
-                  <label htmlFor="officePhone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Office Phone <span className="text-red-500">*</span>
-                  </label>
-                  <input id="officePhone" name="officePhone" type="tel" value={formData.officePhone} onChange={handleChange} className={inputClass} placeholder="(555) 987-6543" />
-                </div>
+                {fieldErrors.attendsRegularly && <p className={errorTextClass}>{fieldErrors.attendsRegularly}</p>}
               </div>
             )}
           </div>

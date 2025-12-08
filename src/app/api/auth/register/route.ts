@@ -13,10 +13,13 @@ export async function POST(request: NextRequest) {
       city,
       state,
       zipCode,
-      isAdmin,
-      ministryRole,
-      responsibility,
-      officePhone,
+      gender,
+      isBaptized,
+      whenBaptized,
+      marriedStatus,
+      spouseGender,
+      applyForMembership,
+      faithStatement,
     } = await request.json()
 
     // Validation
@@ -34,11 +37,32 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Admin-specific validation
-    if (isAdmin) {
-      if (!ministryRole || !responsibility || !officePhone) {
+    if (!gender) {
+      return NextResponse.json(
+        { error: "Gender is required" },
+        { status: 400 }
+      )
+    }
+
+    // Spouse gender required if married
+    if (marriedStatus === "MARRIED" && !spouseGender) {
+      return NextResponse.json(
+        { error: "Spouse gender is required when married" },
+        { status: 400 }
+      )
+    }
+
+    // Membership application validation
+    if (applyForMembership) {
+      if (!isBaptized) {
         return NextResponse.json(
-          { error: "All ministry fields are required for admin registration" },
+          { error: "Baptism is required for membership application" },
+          { status: 400 }
+        )
+      }
+      if (!faithStatement) {
+        return NextResponse.json(
+          { error: "Faith statement is required for membership application" },
           { status: 400 }
         )
       }
@@ -59,33 +83,53 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12)
 
-    // Create user - ADMIN if admin checkbox checked, otherwise GUEST
+    // Create user - always GUEST role initially (even if applying for membership)
     const user = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         fullName: fullName || null,
-        role: isAdmin ? "ADMIN" : "GUEST",
+        role: "GUEST", // Always start as GUEST
         phone,
         address,
         city: city || null,
         state: state || null,
         zipCode: zipCode || null,
-        ministryRole: isAdmin ? ministryRole : null,
-        responsibility: isAdmin ? responsibility : null,
-        officePhone: isAdmin ? officePhone : null,
+        gender,
+        isBaptized: isBaptized || false,
+        whenBaptized: whenBaptized ? new Date(whenBaptized) : null,
+        marriedStatus: marriedStatus || null,
+        spouseGender: marriedStatus === "MARRIED" ? spouseGender : null,
       },
     })
 
+    // If user applied for membership, create a membership request
+    if (applyForMembership) {
+      await prisma.userRequest.create({
+        data: {
+          userId: user.id,
+          category: "MEMBERSHIP",
+          requestType: "APPLY_NEW",
+          title: "Apply for New Membership",
+          status: "SUBMITTED", // Auto-submit since they applied during registration
+          reason: "Applied during account registration",
+          testimony: faithStatement,
+        },
+      })
+    }
+
     return NextResponse.json(
       {
-        message: "User registered successfully",
+        message: applyForMembership
+          ? "User registered successfully. Your membership application has been submitted for review."
+          : "User registered successfully",
         user: {
           id: user.id,
           email: user.email,
           fullName: user.fullName,
           role: user.role,
         },
+        membershipRequestCreated: applyForMembership,
       },
       { status: 201 }
     )
