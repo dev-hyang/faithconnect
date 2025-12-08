@@ -35,6 +35,7 @@ model User {
   zipCode       String?
 
   // Faith-related fields
+  gender        String?   // MALE, FEMALE (required for all users)
   isBaptized    Boolean   @default(false)
   whenBaptized  DateTime?
   marriedStatus String?   // SINGLE, MARRIED, WIDOWED, DIVORCED

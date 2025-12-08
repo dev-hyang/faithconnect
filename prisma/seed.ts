@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs"
 const prisma = new PrismaClient()
 
 async function main() {
-  const hashedPassword = await bcrypt.hash("123Abc!", 12)
+  const hashedPassword = await bcrypt.hash("1234Abc!", 12)
 
   // 2 ADMIN accounts (createdAt <= joinedAt, joinedAt = membership approval date)
   const admins = [

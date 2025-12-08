@@ -4,6 +4,16 @@ import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import {
+  validatePassword,
+  validatePhone,
+  getEmailValidation,
+  getPasswordStrength,
+  formatPhoneNumber,
+  PHONE_FORMAT_HINT,
+  EMAIL_FORMAT_HINT,
+  PASSWORD_FORMAT_HINT,
+} from "@/lib/validation"
 
 interface UserProfile {
   id: string
@@ -55,6 +65,7 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState(false)
   const [message, setMessage] = useState({ type: "", text: "" })
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [formData, setFormData] = useState<FormData>({
     email: "",
     fullName: "",
@@ -115,22 +126,58 @@ export default function ProfilePage() {
     const { name, value, type } = e.target
     if (type === "checkbox") {
       setFormData({ ...formData, [name]: (e.target as HTMLInputElement).checked })
+    } else if (name === "phone") {
+      // Auto-format phone number
+      setFormData({ ...formData, [name]: formatPhoneNumber(value) })
     } else {
       setFormData({ ...formData, [name]: value })
+    }
+    // Clear field error when user starts typing
+    if (fieldErrors[name]) {
+      setFieldErrors({ ...fieldErrors, [name]: "" })
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setMessage({ type: "", text: "" })
+    const errors: Record<string, string> = {}
 
-    if (formData.newPassword && formData.newPassword !== formData.confirmPassword) {
-      setMessage({ type: "error", text: "New passwords do not match" })
-      return
+    // Email validation
+    const emailValidation = getEmailValidation(formData.email)
+    if (!emailValidation.valid) {
+      errors.email = emailValidation.message || "Invalid email"
+    }
+
+    // Phone validation (if provided)
+    if (formData.phone) {
+      const phoneValidation = validatePhone(formData.phone)
+      if (!phoneValidation.valid) {
+        errors.phone = phoneValidation.message || "Invalid phone"
+      }
+    }
+
+    // New password validation (if provided)
+    if (formData.newPassword) {
+      const passwordValidation = validatePassword(formData.newPassword)
+      if (!passwordValidation.valid) {
+        errors.newPassword = passwordValidation.message || "Invalid password"
+      }
+      if (formData.newPassword !== formData.confirmPassword) {
+        errors.confirmPassword = "Passwords do not match"
+      }
+      if (!formData.currentPassword) {
+        errors.currentPassword = "Current password is required to change password"
+      }
     }
 
     if (formData.marriedStatus === "MARRIED" && !formData.spouseGender) {
-      setMessage({ type: "error", text: "Spouse gender is required when married" })
+      errors.spouseGender = "Spouse gender is required when married"
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
+      setMessage({ type: "error", text: "Please fix the errors below" })
       return
     }
 
@@ -196,7 +243,17 @@ export default function ProfilePage() {
   }
 
   const inputClass = "w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+  const inputErrorClass = "w-full px-4 py-3 border border-red-500 rounded-lg focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-white"
   const labelClass = "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+  const hintClass = "text-xs text-gray-500 dark:text-gray-400 mt-1"
+  const errorTextClass = "text-xs text-red-500 mt-1"
+
+  const passwordStrength = getPasswordStrength(formData.newPassword)
+  const strengthColors = {
+    weak: "bg-red-500",
+    medium: "bg-yellow-500",
+    strong: "bg-green-500",
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4">
@@ -225,7 +282,12 @@ export default function ProfilePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className={labelClass}>Email *</label>
-                  <input name="email" type="email" value={formData.email} onChange={handleChange} required className={inputClass} />
+                  <input name="email" type="email" value={formData.email} onChange={handleChange} required className={fieldErrors.email ? inputErrorClass : inputClass} />
+                  {fieldErrors.email ? (
+                    <p className={errorTextClass}>{fieldErrors.email}</p>
+                  ) : (
+                    <p className={hintClass}>{EMAIL_FORMAT_HINT}</p>
+                  )}
                 </div>
                 <div>
                   <label className={labelClass}>Full Name</label>
@@ -238,7 +300,12 @@ export default function ProfilePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className={labelClass}>Phone</label>
-                  <input name="phone" type="tel" value={formData.phone} onChange={handleChange} className={inputClass} />
+                  <input name="phone" type="tel" value={formData.phone} onChange={handleChange} className={fieldErrors.phone ? inputErrorClass : inputClass} placeholder="(101) 202-0001" />
+                  {fieldErrors.phone ? (
+                    <p className={errorTextClass}>{fieldErrors.phone}</p>
+                  ) : (
+                    <p className={hintClass}>{PHONE_FORMAT_HINT}</p>
+                  )}
                 </div>
                 <div>
                   <label className={labelClass}>Address</label>
@@ -294,15 +361,34 @@ export default function ProfilePage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className={labelClass}>Current Password</label>
-                  <input name="currentPassword" type="password" value={formData.currentPassword} onChange={handleChange} className={inputClass} />
+                  <input name="currentPassword" type="password" value={formData.currentPassword} onChange={handleChange} className={fieldErrors.currentPassword ? inputErrorClass : inputClass} />
+                  {fieldErrors.currentPassword && <p className={errorTextClass}>{fieldErrors.currentPassword}</p>}
                 </div>
                 <div>
                   <label className={labelClass}>New Password</label>
-                  <input name="newPassword" type="password" value={formData.newPassword} onChange={handleChange} className={inputClass} />
+                  <input name="newPassword" type="password" value={formData.newPassword} onChange={handleChange} className={fieldErrors.newPassword ? inputErrorClass : inputClass} />
+                  {formData.newPassword && (
+                    <div className="mt-2">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div className={`h-full ${strengthColors[passwordStrength.strength]} transition-all`} style={{ width: `${(passwordStrength.score / 6) * 100}%` }} />
+                        </div>
+                        <span className={`text-xs ${passwordStrength.strength === "weak" ? "text-red-500" : passwordStrength.strength === "medium" ? "text-yellow-500" : "text-green-500"}`}>
+                          {passwordStrength.strength.charAt(0).toUpperCase() + passwordStrength.strength.slice(1)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  {fieldErrors.newPassword ? (
+                    <p className={errorTextClass}>{fieldErrors.newPassword}</p>
+                  ) : (
+                    <p className={hintClass}>{PASSWORD_FORMAT_HINT}</p>
+                  )}
                 </div>
                 <div>
                   <label className={labelClass}>Confirm Password</label>
-                  <input name="confirmPassword" type="password" value={formData.confirmPassword} onChange={handleChange} className={inputClass} />
+                  <input name="confirmPassword" type="password" value={formData.confirmPassword} onChange={handleChange} className={fieldErrors.confirmPassword ? inputErrorClass : inputClass} />
+                  {fieldErrors.confirmPassword && <p className={errorTextClass}>{fieldErrors.confirmPassword}</p>}
                 </div>
               </div>
 

@@ -3,6 +3,16 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import {
+  validatePassword,
+  validatePhone,
+  getEmailValidation,
+  getPasswordStrength,
+  formatPhoneNumber,
+  PHONE_FORMAT_HINT,
+  EMAIL_FORMAT_HINT,
+  PASSWORD_FORMAT_HINT,
+} from "@/lib/validation"
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -22,41 +32,76 @@ export default function RegisterPage() {
     officePhone: "",
   })
   const [error, setError] = useState("")
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target
     if (type === "checkbox") {
       setFormData({ ...formData, [name]: (e.target as HTMLInputElement).checked })
+    } else if (name === "phone" || name === "officePhone") {
+      // Auto-format phone numbers
+      setFormData({ ...formData, [name]: formatPhoneNumber(value) })
     } else {
       setFormData({ ...formData, [name]: value })
+    }
+    // Clear field error when user starts typing
+    if (fieldErrors[name]) {
+      setFieldErrors({ ...fieldErrors, [name]: "" })
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+    const errors: Record<string, string> = {}
 
+    // Email validation
+    const emailValidation = getEmailValidation(formData.email)
+    if (!emailValidation.valid) {
+      errors.email = emailValidation.message || "Invalid email"
+    }
+
+    // Password validation
+    const passwordValidation = validatePassword(formData.password)
+    if (!passwordValidation.valid) {
+      errors.password = passwordValidation.message || "Invalid password"
+    }
+
+    // Confirm password
     if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match")
-      return
+      errors.confirmPassword = "Passwords do not match"
     }
 
-    if (formData.password.length < 6) {
-      setError("Password must be at least 6 characters")
-      return
+    // Phone validation
+    const phoneValidation = validatePhone(formData.phone)
+    if (!phoneValidation.valid) {
+      errors.phone = phoneValidation.message || "Invalid phone"
     }
 
-    if (!formData.phone || !formData.address) {
-      setError("Phone and address are required")
-      return
+    // Address required
+    if (!formData.address) {
+      errors.address = "Address is required"
     }
 
+    // Admin fields
     if (formData.isAdmin) {
-      if (!formData.ministryRole || !formData.responsibility || !formData.officePhone) {
-        setError("All ministry fields are required for admin registration")
-        return
+      if (!formData.ministryRole) errors.ministryRole = "Ministry role is required"
+      if (!formData.responsibility) errors.responsibility = "Responsibility is required"
+      if (formData.officePhone) {
+        const officePhoneValidation = validatePhone(formData.officePhone)
+        if (!officePhoneValidation.valid) {
+          errors.officePhone = officePhoneValidation.message || "Invalid phone"
+        }
+      } else {
+        errors.officePhone = "Office phone is required"
       }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
+      setError("Please fix the errors below")
+      return
     }
 
     setLoading(true)
@@ -97,6 +142,16 @@ export default function RegisterPage() {
   }
 
   const inputClass = "w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition"
+  const inputErrorClass = "w-full px-4 py-3 border border-red-500 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition"
+  const hintClass = "text-xs text-gray-500 dark:text-gray-400 mt-1"
+  const errorTextClass = "text-xs text-red-500 mt-1"
+
+  const passwordStrength = getPasswordStrength(formData.password)
+  const strengthColors = {
+    weak: "bg-red-500",
+    medium: "bg-yellow-500",
+    strong: "bg-green-500",
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 px-4 py-8">
@@ -125,7 +180,12 @@ export default function RegisterPage() {
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Email Address <span className="text-red-500">*</span>
               </label>
-              <input id="email" name="email" type="email" value={formData.email} onChange={handleChange} required className={inputClass} placeholder="you@example.com" />
+              <input id="email" name="email" type="email" value={formData.email} onChange={handleChange} required className={fieldErrors.email ? inputErrorClass : inputClass} placeholder="you@example.com" />
+              {fieldErrors.email ? (
+                <p className={errorTextClass}>{fieldErrors.email}</p>
+              ) : (
+                <p className={hintClass}>{EMAIL_FORMAT_HINT}</p>
+              )}
             </div>
           </div>
 
@@ -134,13 +194,31 @@ export default function RegisterPage() {
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Password <span className="text-red-500">*</span>
               </label>
-              <input id="password" name="password" type="password" value={formData.password} onChange={handleChange} required className={inputClass} placeholder="••••••••" />
+              <input id="password" name="password" type="password" value={formData.password} onChange={handleChange} required className={fieldErrors.password ? inputErrorClass : inputClass} placeholder="••••••••" />
+              {formData.password && (
+                <div className="mt-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div className={`h-full ${strengthColors[passwordStrength.strength]} transition-all`} style={{ width: `${(passwordStrength.score / 6) * 100}%` }} />
+                    </div>
+                    <span className={`text-xs ${passwordStrength.strength === "weak" ? "text-red-500" : passwordStrength.strength === "medium" ? "text-yellow-500" : "text-green-500"}`}>
+                      {passwordStrength.strength.charAt(0).toUpperCase() + passwordStrength.strength.slice(1)}
+                    </span>
+                  </div>
+                </div>
+              )}
+              {fieldErrors.password ? (
+                <p className={errorTextClass}>{fieldErrors.password}</p>
+              ) : (
+                <p className={hintClass}>{PASSWORD_FORMAT_HINT}</p>
+              )}
             </div>
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Confirm Password <span className="text-red-500">*</span>
               </label>
-              <input id="confirmPassword" name="confirmPassword" type="password" value={formData.confirmPassword} onChange={handleChange} required className={inputClass} placeholder="••••••••" />
+              <input id="confirmPassword" name="confirmPassword" type="password" value={formData.confirmPassword} onChange={handleChange} required className={fieldErrors.confirmPassword ? inputErrorClass : inputClass} placeholder="••••••••" />
+              {fieldErrors.confirmPassword && <p className={errorTextClass}>{fieldErrors.confirmPassword}</p>}
             </div>
           </div>
 
@@ -152,13 +230,19 @@ export default function RegisterPage() {
                 <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Phone <span className="text-red-500">*</span>
                 </label>
-                <input id="phone" name="phone" type="tel" value={formData.phone} onChange={handleChange} required className={inputClass} placeholder="(555) 123-4567" />
+                <input id="phone" name="phone" type="tel" value={formData.phone} onChange={handleChange} required className={fieldErrors.phone ? inputErrorClass : inputClass} placeholder="(101) 202-0001" />
+                {fieldErrors.phone ? (
+                  <p className={errorTextClass}>{fieldErrors.phone}</p>
+                ) : (
+                  <p className={hintClass}>{PHONE_FORMAT_HINT}</p>
+                )}
               </div>
               <div>
                 <label htmlFor="address" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Street Address <span className="text-red-500">*</span>
                 </label>
-                <input id="address" name="address" type="text" value={formData.address} onChange={handleChange} required className={inputClass} placeholder="123 Main St" />
+                <input id="address" name="address" type="text" value={formData.address} onChange={handleChange} required className={fieldErrors.address ? inputErrorClass : inputClass} placeholder="123 Main St" />
+                {fieldErrors.address && <p className={errorTextClass}>{fieldErrors.address}</p>}
               </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
@@ -195,19 +279,26 @@ export default function RegisterPage() {
                   <label htmlFor="ministryRole" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Ministry Role <span className="text-red-500">*</span>
                   </label>
-                  <input id="ministryRole" name="ministryRole" type="text" value={formData.ministryRole} onChange={handleChange} className={inputClass} placeholder="e.g., Pastor, Elder, Deacon" />
+                  <input id="ministryRole" name="ministryRole" type="text" value={formData.ministryRole} onChange={handleChange} className={fieldErrors.ministryRole ? inputErrorClass : inputClass} placeholder="e.g., Pastor, Elder, Deacon" />
+                  {fieldErrors.ministryRole && <p className={errorTextClass}>{fieldErrors.ministryRole}</p>}
                 </div>
                 <div>
                   <label htmlFor="responsibility" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Responsibility <span className="text-red-500">*</span>
                   </label>
-                  <input id="responsibility" name="responsibility" type="text" value={formData.responsibility} onChange={handleChange} className={inputClass} placeholder="e.g., Youth Ministry, Worship Team Lead" />
+                  <input id="responsibility" name="responsibility" type="text" value={formData.responsibility} onChange={handleChange} className={fieldErrors.responsibility ? inputErrorClass : inputClass} placeholder="e.g., Youth Ministry, Worship Team Lead" />
+                  {fieldErrors.responsibility && <p className={errorTextClass}>{fieldErrors.responsibility}</p>}
                 </div>
                 <div>
                   <label htmlFor="officePhone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Office Phone <span className="text-red-500">*</span>
                   </label>
-                  <input id="officePhone" name="officePhone" type="tel" value={formData.officePhone} onChange={handleChange} className={inputClass} placeholder="(555) 987-6543" />
+                  <input id="officePhone" name="officePhone" type="tel" value={formData.officePhone} onChange={handleChange} className={fieldErrors.officePhone ? inputErrorClass : inputClass} placeholder="(101) 202-0001" />
+                  {fieldErrors.officePhone ? (
+                    <p className={errorTextClass}>{fieldErrors.officePhone}</p>
+                  ) : (
+                    <p className={hintClass}>{PHONE_FORMAT_HINT}</p>
+                  )}
                 </div>
               </div>
             )}
