@@ -11,7 +11,7 @@ async function main() {
     {
       email: "admin1@example.com",
       fullName: "Pastor John Smith",
-      phone: "555-0001",
+      phone: "(101) 202-0001",
       address: "100 Church Street",
       city: "Springfield",
       state: "IL",
@@ -24,12 +24,12 @@ async function main() {
       joinedAt: new Date("2010-01-15"), // Founding pastor
       ministryRole: "Senior Pastor",
       responsibility: "Pastoral care, preaching, and church leadership",
-      officePhone: "555-0001-EXT1",
+      officePhone: "(101) 202-0001 x1",
     },
     {
       email: "admin2@example.com",
       fullName: "Deacon Mary Johnson",
-      phone: "555-0002",
+      phone: "(101) 202-0002",
       address: "200 Ministry Lane",
       city: "Springfield",
       state: "IL",
@@ -42,7 +42,7 @@ async function main() {
       joinedAt: new Date("2015-06-01"), // Joined as admin later
       ministryRole: "Church Administrator",
       responsibility: "Membership management, events coordination, and admin support",
-      officePhone: "555-0002-EXT2",
+      officePhone: "(101) 202-0002 x2",
     },
   ]
 
@@ -51,7 +51,7 @@ async function main() {
     {
       email: "guest1@example.com",
       fullName: "Alice Johnson",
-      phone: "555-0101",
+      phone: "(101) 202-0101",
       address: "123 Oak Street",
       city: "Springfield",
       state: "IL",
@@ -63,7 +63,7 @@ async function main() {
     {
       email: "guest2@example.com",
       fullName: "Bob Williams",
-      phone: "555-0102",
+      phone: "(101) 202-0102",
       address: "456 Maple Avenue",
       city: "Columbus",
       state: "OH",
@@ -77,7 +77,7 @@ async function main() {
     {
       email: "guest3@example.com",
       fullName: "Carol Davis",
-      phone: "555-0103",
+      phone: "(101) 202-0103",
       address: "789 Pine Road",
       city: "Austin",
       state: "TX",
@@ -89,7 +89,7 @@ async function main() {
     {
       email: "guest4@example.com",
       fullName: "Daniel Brown",
-      phone: "555-0104",
+      phone: "(101) 202-0104",
       address: "321 Elm Lane",
       city: "Denver",
       state: "CO",
@@ -102,7 +102,7 @@ async function main() {
     {
       email: "guest5@example.com",
       fullName: "Emily Martinez",
-      phone: "555-0105",
+      phone: "(101) 202-0105",
       address: "654 Cedar Court",
       city: "Seattle",
       state: "WA",
@@ -114,7 +114,7 @@ async function main() {
     {
       email: "guest6@example.com",
       fullName: "Rachel Green",
-      phone: "555-0106",
+      phone: "(101) 202-0106",
       address: "789 Central Park West",
       city: "New York",
       state: "NY",
@@ -127,7 +127,7 @@ async function main() {
     {
       email: "guest7@example.com",
       fullName: "Michael Scott",
-      phone: "555-0107",
+      phone: "(101) 202-0107",
       address: "1725 Slough Avenue",
       city: "Scranton",
       state: "PA",
@@ -143,7 +143,7 @@ async function main() {
     {
       email: "member1@example.com",
       fullName: "Frank Thompson",
-      phone: "555-0201",
+      phone: "(101) 202-0201",
       address: "111 First Street",
       city: "Portland",
       state: "OR",
@@ -158,7 +158,7 @@ async function main() {
     {
       email: "member2@example.com",
       fullName: "Grace Lee",
-      phone: "555-0202",
+      phone: "(101) 202-0202",
       address: "222 Second Avenue",
       city: "Phoenix",
       state: "AZ",
@@ -172,7 +172,7 @@ async function main() {
     {
       email: "member3@example.com",
       fullName: "Henry Wilson",
-      phone: "555-0203",
+      phone: "(101) 202-0203",
       address: "333 Third Boulevard",
       city: "Nashville",
       state: "TN",
@@ -187,7 +187,7 @@ async function main() {
     {
       email: "member4@example.com",
       fullName: "Isabella Garcia",
-      phone: "555-0204",
+      phone: "(101) 202-0204",
       address: "444 Fourth Drive",
       city: "Miami",
       state: "FL",
@@ -201,7 +201,7 @@ async function main() {
     {
       email: "member5@example.com",
       fullName: "James Anderson",
-      phone: "555-0205",
+      phone: "(101) 202-0205",
       address: "555 Fifth Place",
       city: "Atlanta",
       state: "GA",
@@ -216,7 +216,7 @@ async function main() {
     {
       email: "member6@example.com",
       fullName: "Katherine Chen",
-      phone: "555-0206",
+      phone: "(101) 202-0206",
       address: "666 Sixth Way",
       city: "Boston",
       state: "MA",
@@ -230,7 +230,7 @@ async function main() {
     {
       email: "member7@example.com",
       fullName: "Liam Robinson",
-      phone: "555-0207",
+      phone: "(101) 202-0207",
       address: "777 Seventh Circle",
       city: "Chicago",
       state: "IL",
@@ -244,7 +244,7 @@ async function main() {
     {
       email: "member8@example.com",
       fullName: "Mia Patel",
-      phone: "555-0208",
+      phone: "(101) 202-0208",
       address: "888 Eighth Lane",
       city: "San Diego",
       state: "CA",
@@ -263,7 +263,7 @@ async function main() {
     {
       email: "member9@example.com",
       fullName: "Noah Kim",
-      phone: "555-0209",
+      phone: "(101) 202-0209",
       address: "999 Ninth Court",
       city: "Dallas",
       state: "TX",
@@ -277,7 +277,7 @@ async function main() {
     {
       email: "member10@example.com",
       fullName: "Olivia Taylor",
-      phone: "555-0210",
+      phone: "(101) 202-0210",
       address: "1010 Tenth Street",
       city: "Philadelphia",
       state: "PA",
@@ -292,7 +292,7 @@ async function main() {
     {
       email: "member11@example.com",
       fullName: "Ethan Carter",
-      phone: "555-0211",
+      phone: "(101) 202-0211",
       address: "1111 Eleventh Avenue",
       city: "San Francisco",
       state: "CA",
@@ -306,7 +306,7 @@ async function main() {
     {
       email: "member12@example.com",
       fullName: "Sophia Rodriguez",
-      phone: "555-0212",
+      phone: "(101) 202-0212",
       address: "1212 Twelfth Boulevard",
       city: "Los Angeles",
       state: "CA",
@@ -321,7 +321,7 @@ async function main() {
     {
       email: "member13@example.com",
       fullName: "William Turner",
-      phone: "555-0213",
+      phone: "(101) 202-0213",
       address: "1313 Thirteenth Place",
       city: "Houston",
       state: "TX",
@@ -335,7 +335,7 @@ async function main() {
     {
       email: "member14@example.com",
       fullName: "Emma Watson",
-      phone: "555-0214",
+      phone: "(101) 202-0214",
       address: "1414 Fourteenth Drive",
       city: "Orlando",
       state: "FL",
@@ -349,7 +349,7 @@ async function main() {
     {
       email: "member15@example.com",
       fullName: "Alexander Wright",
-      phone: "555-0215",
+      phone: "(101) 202-0215",
       address: "1515 Fifteenth Circle",
       city: "Charlotte",
       state: "NC",
