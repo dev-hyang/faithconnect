@@ -47,13 +47,16 @@ model User {
   officePhone     String?
 
   // Relations
-  sessions            Session[]
-  accounts            Account[]
-  fellowshipGroups    FellowshipGroup[]
-  memberships         FellowshipMembership[]
-  joinRequests        GroupJoinRequest[]
-  membershipRequests  MembershipRequest[]
-  userRequests        UserRequest[]
+  sessions              Session[]
+  accounts              Account[]
+  createdGroups         FellowshipGroup[]      @relation("GroupCreator")
+  updatedGroups         FellowshipGroup[]      @relation("GroupUpdater")
+  memberships           FellowshipMembership[]
+  joinRequests          GroupJoinRequest[]
+  leaderRequests        GroupLeaderRequest[]   @relation("LeaderRequestUser")
+  leaderReviews         GroupLeaderRequest[]   @relation("LeaderRequestReviewer")
+  membershipRequests    MembershipRequest[]
+  userRequests          UserRequest[]
 }
 
 model Account {
@@ -94,21 +97,28 @@ model VerificationToken {
 
 // Fellowship Group Module
 // Membership roles: LEADER, MEMBER
+// Visibility: PUBLIC (all can see), INTERNAL (ADMIN and MEMBER), PRIVATE (ADMIN only)
+// Schedule types: RECURRING, ADHOC
 model FellowshipGroup {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  schedule    String?   // e.g., "Every Sunday 10:00 AM"
-  imageUrl    String?
-  maxMembers  Int       @default(20)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  createdById String
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  visibility      String   @default("PUBLIC")  // PUBLIC, INTERNAL, PRIVATE
+  scheduleType    String   @default("ADHOC")   // RECURRING, ADHOC
+  scheduleDetails String?  // JSON string for recurring: {dayOfWeek, time, frequency} or text for adhoc
+  imageUrl        String?
+  maxMembers      Int      @default(20)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdById     String
+  updatedById     String?
 
-  createdBy    User                   @relation(fields: [createdById], references: [id])
-  members      FellowshipMembership[]
-  events       Event[]
-  joinRequests GroupJoinRequest[]
+  createdBy         User                   @relation("GroupCreator", fields: [createdById], references: [id])
+  updatedBy         User?                  @relation("GroupUpdater", fields: [updatedById], references: [id])
+  members           FellowshipMembership[]
+  events            GroupEvent[]
+  joinRequests      GroupJoinRequest[]
+  leaderRequests    GroupLeaderRequest[]
 }
 
 model FellowshipMembership {
@@ -140,7 +150,46 @@ model GroupJoinRequest {
   @@unique([userId, groupId])
 }
 
-// Events for homepage
+// Group Events - events organized by fellowship groups
+// Event Type: ONLINE, OFFLINE
+// Event Status: PLANNED, IN_PROGRESS, COMPLETED, CANCELLED
+model GroupEvent {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  eventTime   DateTime
+  eventType   String   @default("OFFLINE")  // ONLINE, OFFLINE
+  location    String?  // Physical location or online meeting link
+  status      String   @default("PLANNED")  // PLANNED, IN_PROGRESS, COMPLETED, CANCELLED
+  groupId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  group FellowshipGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+}
+
+// Group Leader Requests - for applying/withdrawing as group leader
+// Request Type: APPLY_LEADER, WITHDRAW_LEADER
+// Status: PENDING, APPROVED, REJECTED
+model GroupLeaderRequest {
+  id          String    @id @default(cuid())
+  userId      String
+  groupId     String
+  requestType String    // APPLY_LEADER, WITHDRAW_LEADER
+  status      String    @default("PENDING")  // PENDING, APPROVED, REJECTED
+  message     String?   // Optional message from requester
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  reviewNote  String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user     User            @relation("LeaderRequestUser", fields: [userId], references: [id], onDelete: Cascade)
+  group    FellowshipGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  reviewer User?           @relation("LeaderRequestReviewer", fields: [reviewedBy], references: [id])
+}
+
+// Legacy Events for homepage (keeping for backward compatibility)
 model Event {
   id          String   @id @default(cuid())
   title       String
@@ -149,11 +198,8 @@ model Event {
   startDate   DateTime
   endDate     DateTime?
   location    String?
-  groupId     String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
-  group FellowshipGroup? @relation(fields: [groupId], references: [id])
 }
 
 // Photo Gallery

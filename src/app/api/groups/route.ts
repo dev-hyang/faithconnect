@@ -2,10 +2,34 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 
-// GET - List all fellowship groups
+// Visibility levels:
+// PUBLIC - visible to all (ADMIN, MEMBER, GUEST)
+// INTERNAL - visible to ADMIN and MEMBER only
+// PRIVATE - visible to ADMIN only
+
+// GET - List all fellowship groups based on user role visibility
 export async function GET() {
   try {
+    const session = await auth()
+    const userRole = session?.user?.role || "GUEST"
+
+    // Build visibility filter based on user role
+    let visibilityFilter: string[]
+    if (userRole === "ADMIN") {
+      // ADMIN can see all groups
+      visibilityFilter = ["PUBLIC", "INTERNAL", "PRIVATE"]
+    } else if (userRole === "MEMBER") {
+      // MEMBER can see PUBLIC and INTERNAL groups
+      visibilityFilter = ["PUBLIC", "INTERNAL"]
+    } else {
+      // GUEST can only see PUBLIC groups
+      visibilityFilter = ["PUBLIC"]
+    }
+
     const groups = await prisma.fellowshipGroup.findMany({
+      where: {
+        visibility: { in: visibilityFilter }
+      },
       include: {
         createdBy: {
           select: { id: true, fullName: true, email: true },
@@ -17,16 +41,17 @@ export async function GET() {
           },
         },
         _count: {
-          select: { members: true },
+          select: { members: true, events: true },
         },
       },
       orderBy: { createdAt: "desc" },
     })
 
-    // Transform to include leader info
+    // Transform to include leader info and all leaders
     const transformedGroups = groups.map((group) => ({
       ...group,
       leader: group.members.find((m) => m.role === "LEADER")?.user || null,
+      leaders: group.members.filter((m) => m.role === "LEADER").map((m) => m.user),
     }))
 
     return NextResponse.json({ groups: transformedGroups })
@@ -59,11 +84,35 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { name, description, imageUrl, schedule, maxMembers } = await request.json()
+    const {
+      name,
+      description,
+      imageUrl,
+      visibility = "PUBLIC",
+      scheduleType = "ADHOC",
+      scheduleDetails,
+      maxMembers
+    } = await request.json()
 
     if (!name) {
       return NextResponse.json(
         { error: "Group name is required" },
+        { status: 400 }
+      )
+    }
+
+    // Validate visibility
+    if (!["PUBLIC", "INTERNAL", "PRIVATE"].includes(visibility)) {
+      return NextResponse.json(
+        { error: "Invalid visibility. Must be PUBLIC, INTERNAL, or PRIVATE." },
+        { status: 400 }
+      )
+    }
+
+    // Validate scheduleType
+    if (!["RECURRING", "ADHOC"].includes(scheduleType)) {
+      return NextResponse.json(
+        { error: "Invalid schedule type. Must be RECURRING or ADHOC." },
         { status: 400 }
       )
     }
@@ -73,7 +122,9 @@ export async function POST(request: NextRequest) {
         name,
         description,
         imageUrl,
-        schedule: schedule || null,
+        visibility,
+        scheduleType,
+        scheduleDetails: scheduleDetails || null,
         maxMembers: maxMembers || 20,
         createdById: session.user.id,
       },

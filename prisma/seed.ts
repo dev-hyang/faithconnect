@@ -562,6 +562,143 @@ async function main() {
     }
   }
 
+  // Seed Fellowship Groups with different visibility levels
+  console.log("Seeding fellowship groups...")
+
+  const admin1 = await prisma.user.findUnique({ where: { email: "admin1@example.com" } })
+  const member3 = await prisma.user.findUnique({ where: { email: "member3@example.com" } })
+  const member4 = await prisma.user.findUnique({ where: { email: "member4@example.com" } })
+  const member5 = await prisma.user.findUnique({ where: { email: "member5@example.com" } })
+
+  if (admin1 && member3 && member4 && member5) {
+    const groupsData = [
+      {
+        name: "Young Adults Fellowship",
+        description: "A vibrant community for young adults (18-35) to grow in faith together. We meet weekly for Bible study, worship, and fellowship. Our group focuses on navigating life's challenges with a Christ-centered perspective, building meaningful relationships, and serving our community. All young adults are welcome to join us!",
+        visibility: "PUBLIC",
+        scheduleType: "RECURRING",
+        scheduleDetails: "Every Friday 7:00 PM",
+        maxMembers: 50,
+        createdById: member3.id,
+      },
+      {
+        name: "Men's Prayer Breakfast",
+        description: "A weekly gathering for men to share breakfast, pray together, and study God's Word. We focus on building strong Christian men who lead their families and communities with integrity. This is a safe space to share struggles and victories.",
+        visibility: "INTERNAL",
+        scheduleType: "RECURRING",
+        scheduleDetails: "Every Saturday 7:00 AM",
+        maxMembers: 30,
+        createdById: admin1.id,
+      },
+      {
+        name: "Women's Bible Study",
+        description: "A nurturing environment for women to dive deep into Scripture together. We explore various books of the Bible and discuss how to apply God's truth to our daily lives as wives, mothers, professionals, and servants of Christ.",
+        visibility: "PUBLIC",
+        scheduleType: "RECURRING",
+        scheduleDetails: "Every Wednesday 10:00 AM",
+        maxMembers: 40,
+        createdById: member4.id,
+      },
+      {
+        name: "Leadership Team",
+        description: "Private group for church leadership to coordinate ministry activities, discuss strategic planning, and pray for the congregation. This group is for ordained leaders and ministry heads only.",
+        visibility: "PRIVATE",
+        scheduleType: "RECURRING",
+        scheduleDetails: "First Monday of each month 6:00 PM",
+        maxMembers: 15,
+        createdById: admin1.id,
+      },
+      {
+        name: "Community Outreach Team",
+        description: "Dedicated to serving our local community through various outreach programs including food drives, homeless ministry, and neighborhood clean-ups. We meet as needed to plan and execute outreach events.",
+        visibility: "INTERNAL",
+        scheduleType: "ADHOC",
+        scheduleDetails: "Meets as needed for outreach events",
+        maxMembers: 25,
+        createdById: member5.id,
+      },
+    ]
+
+    for (const groupData of groupsData) {
+      const existingGroup = await prisma.fellowshipGroup.findFirst({
+        where: { name: groupData.name },
+      })
+
+      if (!existingGroup) {
+        const group = await prisma.fellowshipGroup.create({
+          data: groupData,
+        })
+
+        // Add creator as leader
+        await prisma.fellowshipMembership.create({
+          data: {
+            userId: groupData.createdById,
+            groupId: group.id,
+            role: "LEADER",
+          },
+        })
+
+        console.log(`Created group: ${group.name} (${group.visibility})`)
+
+        // Add some members to each group
+        const membersToAdd = [member3, member4, member5].filter(m => m.id !== groupData.createdById)
+        for (const memberToAdd of membersToAdd.slice(0, 2)) {
+          const existingMembership = await prisma.fellowshipMembership.findFirst({
+            where: { userId: memberToAdd.id, groupId: group.id },
+          })
+          if (!existingMembership) {
+            await prisma.fellowshipMembership.create({
+              data: {
+                userId: memberToAdd.id,
+                groupId: group.id,
+                role: "MEMBER",
+              },
+            })
+          }
+        }
+
+        // Add sample events to each group
+        const now = new Date()
+        const events = [
+          {
+            groupId: group.id,
+            title: `${group.name} - Weekly Meeting`,
+            description: "Our regular weekly gathering",
+            eventTime: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000), // 1 week from now
+            eventType: "OFFLINE",
+            location: "Main Fellowship Hall",
+            status: "PLANNED",
+          },
+          {
+            groupId: group.id,
+            title: `${group.name} - Special Event`,
+            description: "A special gathering for our group",
+            eventTime: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+            eventType: "OFFLINE",
+            location: "Church Auditorium",
+            status: "COMPLETED",
+          },
+          {
+            groupId: group.id,
+            title: `${group.name} - Online Prayer`,
+            description: "Virtual prayer meeting via Zoom",
+            eventTime: new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000), // Tomorrow
+            eventType: "ONLINE",
+            location: "Zoom Meeting",
+            status: "IN_PROGRESS",
+          },
+        ]
+
+        for (const eventData of events) {
+          await prisma.groupEvent.create({ data: eventData })
+        }
+        console.log(`  Added 3 events to ${group.name}`)
+      } else {
+        console.log(`Skipped (exists): ${groupData.name}`)
+      }
+    }
+  }
+
   console.log("Seeding completed!")
 }
 

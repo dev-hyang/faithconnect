@@ -4,17 +4,52 @@ import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import Link from "next/link"
 
+interface Leader {
+  id: string
+  fullName: string | null
+  email: string
+}
+
 interface Group {
   id: string
   name: string
   description: string | null
+  visibility: string
+  scheduleType: string
+  scheduleDetails: string | null
   imageUrl: string | null
-  schedule: string | null
   maxMembers: number
   createdAt: string
   createdBy: { id: string; fullName: string | null; email: string }
-  leader: { id: string; fullName: string | null; email: string } | null
-  _count: { members: number }
+  leader: Leader | null
+  leaders: Leader[]
+  _count: { members: number; events: number }
+}
+
+// Helper to truncate description at 200 characters
+function truncateDescription(desc: string | null, maxLength = 200): { text: string; isTruncated: boolean } {
+  if (!desc) return { text: "No description available", isTruncated: false }
+  if (desc.length <= maxLength) return { text: desc, isTruncated: false }
+  return { text: desc.substring(0, maxLength) + "...", isTruncated: true }
+}
+
+// Helper to get visibility badge
+function VisibilityBadge({ visibility }: { visibility: string }) {
+  const styles: Record<string, string> = {
+    PUBLIC: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+    INTERNAL: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+    PRIVATE: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+  }
+  const icons: Record<string, string> = {
+    PUBLIC: "🌐",
+    INTERNAL: "🏠",
+    PRIVATE: "🔒",
+  }
+  return (
+    <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[visibility] || styles.PUBLIC}`}>
+      {icons[visibility]} {visibility}
+    </span>
+  )
 }
 
 export default function GroupsPage() {
@@ -73,34 +108,51 @@ export default function GroupsPage() {
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {groups.map((group) => (
-              <Link
-                key={group.id}
-                href={`/groups/${group.id}`}
-                className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition"
-              >
-                <div className="h-40 bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center">
-                  {group.imageUrl ? (
-                    <img src={group.imageUrl} alt={group.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-6xl">👥</span>
-                  )}
-                </div>
-                <div className="p-6">
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">{group.name}</h3>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm line-clamp-2 mb-3">
-                    {group.description || "No description available"}
-                  </p>
-                  {group.schedule && (
-                    <p className="text-sm text-blue-600 dark:text-blue-400 mb-3">📅 {group.schedule}</p>
-                  )}
-                  <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
-                    <span>{group._count.members}/{group.maxMembers} members</span>
-                    <span>Leader: {group.leader?.fullName || group.createdBy.fullName || "N/A"}</span>
+            {groups.map((group) => {
+              const { text: descText, isTruncated } = truncateDescription(group.description)
+              return (
+                <Link
+                  key={group.id}
+                  href={`/groups/${group.id}`}
+                  className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition group"
+                >
+                  <div className="h-40 bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center relative">
+                    {group.imageUrl ? (
+                      <img src={group.imageUrl} alt={group.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-6xl">👥</span>
+                    )}
+                    <div className="absolute top-3 right-3">
+                      <VisibilityBadge visibility={group.visibility} />
+                    </div>
                   </div>
-                </div>
-              </Link>
-            ))}
+                  <div className="p-6">
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">{group.name}</h3>
+                    <div className="relative">
+                      <p
+                        className="text-gray-600 dark:text-gray-400 text-sm mb-3"
+                        title={isTruncated ? group.description || undefined : undefined}
+                      >
+                        {descText}
+                      </p>
+                    </div>
+                    {group.scheduleDetails && (
+                      <p className="text-sm text-blue-600 dark:text-blue-400 mb-3">
+                        📅 {group.scheduleType === "RECURRING" ? "🔄 " : ""}{group.scheduleDetails}
+                      </p>
+                    )}
+                    <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
+                      <span>👥 {group._count.members}/{group.maxMembers}</span>
+                      <span className="truncate ml-2">
+                        👤 {group.leaders.length > 1
+                          ? `${group.leaders.length} leaders`
+                          : group.leader?.fullName || group.createdBy.fullName || "N/A"}
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              )
+            })}
           </div>
         )}
       </div>
@@ -122,7 +174,9 @@ export default function GroupsPage() {
 function CreateGroupModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
-  const [schedule, setSchedule] = useState("")
+  const [visibility, setVisibility] = useState("PUBLIC")
+  const [scheduleType, setScheduleType] = useState("ADHOC")
+  const [scheduleDetails, setScheduleDetails] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
@@ -135,7 +189,13 @@ function CreateGroupModal({ onClose, onCreated }: { onClose: () => void; onCreat
       const response = await fetch("/api/groups", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description, schedule }),
+        body: JSON.stringify({
+          name,
+          description,
+          visibility,
+          scheduleType,
+          scheduleDetails: scheduleDetails || null,
+        }),
       })
 
       const data = await response.json()
@@ -154,25 +214,80 @@ function CreateGroupModal({ onClose, onCreated }: { onClose: () => void; onCreat
   }
 
   const inputClass = "w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+  const selectClass = "w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white appearance-none"
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4 overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full p-6 my-8">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Create Fellowship Group</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Group Name *</label>
             <input type="text" value={name} onChange={(e) => setName(e.target.value)} required className={inputClass} placeholder="Enter group name" />
           </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Description</label>
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className={inputClass} placeholder="Describe your group" />
           </div>
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Schedule</label>
-            <input type="text" value={schedule} onChange={(e) => setSchedule(e.target.value)} className={inputClass} placeholder="e.g., Every Sunday 10:00 AM" />
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Visibility</label>
+            <select value={visibility} onChange={(e) => setVisibility(e.target.value)} className={selectClass}>
+              <option value="PUBLIC">🌐 Public - Visible to everyone</option>
+              <option value="INTERNAL">🏠 Internal - Members only</option>
+              <option value="PRIVATE">🔒 Private - Admins only</option>
+            </select>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              {visibility === "PUBLIC" && "All users (including guests) can see this group."}
+              {visibility === "INTERNAL" && "Only admins and church members can see this group."}
+              {visibility === "PRIVATE" && "Only admins can see this group."}
+            </p>
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Schedule Type</label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="scheduleType"
+                  value="ADHOC"
+                  checked={scheduleType === "ADHOC"}
+                  onChange={(e) => setScheduleType(e.target.value)}
+                  className="text-blue-600"
+                />
+                <span className="text-gray-700 dark:text-gray-300">Ad-hoc</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="scheduleType"
+                  value="RECURRING"
+                  checked={scheduleType === "RECURRING"}
+                  onChange={(e) => setScheduleType(e.target.value)}
+                  className="text-blue-600"
+                />
+                <span className="text-gray-700 dark:text-gray-300">Recurring</span>
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              {scheduleType === "RECURRING" ? "Meeting Schedule" : "Schedule Details (optional)"}
+            </label>
+            <input
+              type="text"
+              value={scheduleDetails}
+              onChange={(e) => setScheduleDetails(e.target.value)}
+              className={inputClass}
+              placeholder={scheduleType === "RECURRING" ? "e.g., Every Friday 7:00 PM" : "e.g., Meets as needed"}
+            />
+          </div>
+
           <div className="flex gap-4 pt-4">
             <button type="submit" disabled={loading} className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg disabled:opacity-50">{loading ? "Creating..." : "Create Group"}</button>
             <button type="button" onClick={onClose} className="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">Cancel</button>
