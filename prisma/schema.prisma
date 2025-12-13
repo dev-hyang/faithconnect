@@ -1,0 +1,322 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User roles: ADMIN, MEMBER, GUEST (stored as String in SQLite)
+// Married status: SINGLE, MARRIED, WIDOWED, DIVORCED (stored as String in SQLite)
+// Spouse gender: MALE, FEMALE (stored as String in SQLite)
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  fullName      String?
+  role          String    @default("GUEST")  // ADMIN, MEMBER, GUEST
+  isActive      Boolean   @default(true)
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  joinedAt      DateTime? // Membership approved date (null for GUEST, set when approved)
+
+  // Contact info (required for all users)
+  phone         String?
+  address       String?
+  city          String?
+  state         String?
+  zipCode       String?
+
+  // Personal info
+  dateOfBirth   DateTime? // Date of birth (e.g., 2000-11-03)
+
+  // Faith-related fields
+  gender        String?   // MALE, FEMALE (required for all users)
+  isBaptized    Boolean   @default(false)
+  whenBaptized  DateTime?
+  marriedStatus String?   // SINGLE, MARRIED, WIDOWED, DIVORCED
+  spouseGender  String?   // MALE, FEMALE (required if married)
+
+  // Admin-specific fields (required when role is ADMIN)
+  ministryRole    String?
+  responsibility  String?
+  officePhone     String?
+
+  // Relations
+  sessions              Session[]
+  accounts              Account[]
+  createdGroups         FellowshipGroup[]      @relation("GroupCreator")
+  updatedGroups         FellowshipGroup[]      @relation("GroupUpdater")
+  memberships           FellowshipMembership[]
+  joinRequests          GroupJoinRequest[]
+  reviewedJoinRequests  GroupJoinRequest[]     @relation("JoinRequestReviewer")
+  groupInvitations      GroupInvitation[]      @relation("InvitedUser")
+  sentInvitations       GroupInvitation[]      @relation("InvitedByUser")
+  leaderRequests        GroupLeaderRequest[]   @relation("LeaderRequestUser")
+  leaderReviews         GroupLeaderRequest[]   @relation("LeaderRequestReviewer")
+  membershipRequests    MembershipRequest[]
+  userRequests          UserRequest[]
+  testimonies           Testimony[]            @relation("TestimonyAuthor")
+  reviewedTestimonies   Testimony[]            @relation("TestimonyReviewer")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Fellowship Group Module
+// Membership roles: LEADER, MEMBER
+// Visibility: PUBLIC (all can see), INTERNAL (ADMIN and MEMBER), PRIVATE (ADMIN only)
+// Schedule types: RECURRING, ADHOC
+model FellowshipGroup {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  visibility      String   @default("PUBLIC")  // PUBLIC, INTERNAL, PRIVATE
+  scheduleType    String   @default("ADHOC")   // RECURRING, ADHOC
+  scheduleDetails String?  // JSON string for recurring: {dayOfWeek, time, frequency} or text for adhoc
+  imageUrl        String?
+  maxMembers      Int      @default(10)  // Range 3-20, default 10
+  maxLeaders      Int      @default(10)  // Range 3-20, default 10
+  gender          String   @default("ALL")  // ALL, FEMALE, MALE
+  minAge          Int?     // Minimum age (0-120), null means no minimum
+  maxAge          Int?     // Maximum age (0-120), null means no maximum
+  marriedOnly     Boolean  @default(false)  // Only allow MARRIED users
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdById     String
+  updatedById     String?
+
+  createdBy         User                   @relation("GroupCreator", fields: [createdById], references: [id])
+  updatedBy         User?                  @relation("GroupUpdater", fields: [updatedById], references: [id])
+  members           FellowshipMembership[]
+  events            GroupEvent[]
+  joinRequests      GroupJoinRequest[]
+  invitations       GroupInvitation[]
+  leaderRequests    GroupLeaderRequest[]
+}
+
+model FellowshipMembership {
+  id        String   @id @default(cuid())
+  userId    String
+  groupId   String
+  role      String   @default("MEMBER")  // LEADER or MEMBER
+  joinedAt  DateTime @default(now())
+
+  user  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group FellowshipGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, groupId])
+}
+
+// Join request status: PENDING, APPROVED, REJECTED
+model GroupJoinRequest {
+  id            String    @id @default(cuid())
+  userId        String
+  groupId       String
+  status        String    @default("PENDING")  // PENDING, APPROVED, REJECTED
+  message       String?   // Optional message from requester
+  reviewedBy    String?   // Leader who reviewed
+  reviewedAt    DateTime?
+  reviewComment String?   // Comment from reviewer (required on rejection)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group    FellowshipGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  reviewer User?           @relation("JoinRequestReviewer", fields: [reviewedBy], references: [id])
+
+  @@unique([userId, groupId])
+}
+
+// Group Invitations - invitations sent by leaders to users
+// Status: PENDING, ACCEPTED, DECLINED, EXPIRED
+model GroupInvitation {
+  id          String   @id @default(cuid())
+  userId      String   // User being invited
+  groupId     String
+  invitedById String   // Leader who sent the invitation
+  status      String   @default("PENDING")  // PENDING, ACCEPTED, DECLINED, EXPIRED
+  message     String?  // Optional message from leader
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user      User            @relation("InvitedUser", fields: [userId], references: [id], onDelete: Cascade)
+  group     FellowshipGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  invitedBy User            @relation("InvitedByUser", fields: [invitedById], references: [id])
+
+  @@unique([userId, groupId])
+}
+
+// Group Events - events organized by fellowship groups
+// Event Type: ONLINE, OFFLINE
+// Event Status: PLANNED, IN_PROGRESS, COMPLETED, CANCELLED
+model GroupEvent {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  eventTime   DateTime
+  eventType   String   @default("OFFLINE")  // ONLINE, OFFLINE
+  location    String?  // Physical location or online meeting link
+  status      String   @default("PLANNED")  // PLANNED, IN_PROGRESS, COMPLETED, CANCELLED
+  groupId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  group FellowshipGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+}
+
+// Group Leader Requests - for applying/withdrawing as group leader
+// Request Type: APPLY_LEADER, WITHDRAW_LEADER
+// Status: PENDING, APPROVED, REJECTED
+model GroupLeaderRequest {
+  id          String    @id @default(cuid())
+  userId      String
+  groupId     String
+  requestType String    // APPLY_LEADER, WITHDRAW_LEADER
+  status      String    @default("PENDING")  // PENDING, APPROVED, REJECTED
+  message     String?   // Optional message from requester
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  reviewNote  String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user     User            @relation("LeaderRequestUser", fields: [userId], references: [id], onDelete: Cascade)
+  group    FellowshipGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  reviewer User?           @relation("LeaderRequestReviewer", fields: [reviewedBy], references: [id])
+}
+
+// Legacy Events for homepage (keeping for backward compatibility)
+model Event {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  imageUrl    String?
+  startDate   DateTime
+  endDate     DateTime?
+  location    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Photo Gallery
+model Photo {
+  id          String   @id @default(cuid())
+  title       String?
+  url         String
+  description String?
+  createdAt   DateTime @default(now())
+}
+
+// Contact submissions
+model Contact {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  subject   String?
+  message   String
+  createdAt DateTime @default(now())
+  isRead    Boolean  @default(false)
+}
+
+// User Requests - consolidated request system
+// Category: MEMBERSHIP, GROUP
+// Request Types for MEMBERSHIP: APPLY_NEW, TRANSFER_IN, TRANSFER_OUT
+// Request Types for GROUP: JOIN_GROUP, LEAVE_GROUP
+// Status: INITIAL (draft), SUBMITTED, APPROVED, DECLINED
+model UserRequest {
+  id              String   @id @default(cuid())
+  userId          String
+  category        String   // MEMBERSHIP, GROUP
+  requestType     String   // APPLY_NEW, TRANSFER_IN, TRANSFER_OUT, JOIN_GROUP, LEAVE_GROUP
+  title           String   // Display title for the request
+  status          String   @default("INITIAL")  // INITIAL, SUBMITTED, APPROVED, DECLINED
+  reason          String?  // Why applying (e.g., "Got baptized", "Transferred from other church")
+  testimony       String?  // Detailed faith journey testimony
+  previousChurch  String?  // For TRANSFER_IN requests
+  targetChurch    String?  // For TRANSFER_OUT requests
+  groupId         String?  // For GROUP category requests
+  groupName       String?  // Group name for display
+  reviewedBy      String?  // Admin who reviewed
+  reviewedAt      DateTime?
+  reviewNote      String?  // Admin's note
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Legacy model - keeping for backward compatibility
+model MembershipRequest {
+  id              String   @id @default(cuid())
+  userId          String
+  requestType     String   // APPLY, TRANSFER
+  status          String   @default("PENDING")  // PENDING, APPROVED, DECLINED
+  message         String?  // Optional message from requester
+  previousChurch  String?  // For TRANSFER requests
+  reviewedBy      String?  // Admin who reviewed
+  reviewedAt      DateTime?
+  reviewNote      String?  // Admin's note
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Testimonies - user-shared faith testimonies
+// Status: DRAFT, PENDING_APPROVAL, PUBLISHED, REJECTED, CANCELLED
+model Testimony {
+  id           String    @id @default(cuid())
+  title        String
+  description  String
+  status       String    @default("DRAFT")  // DRAFT, PENDING_APPROVAL, PUBLISHED, REJECTED, CANCELLED
+  userId       String
+  reviewedBy   String?   // Admin who reviewed
+  reviewedAt   DateTime?
+  adminComment String?   // Admin's comment (for rejection or approval notes)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user     User  @relation("TestimonyAuthor", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer User? @relation("TestimonyReviewer", fields: [reviewedBy], references: [id])
+}

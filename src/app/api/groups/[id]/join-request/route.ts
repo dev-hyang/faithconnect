@@ -1,0 +1,224 @@
+import { NextRequest, NextResponse } from "next/server"
+import { auth } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+
+// Helper to calculate age from date of birth
+function calculateAge(dateOfBirth: Date): number {
+  const today = new Date()
+  let age = today.getFullYear() - dateOfBirth.getFullYear()
+  const monthDiff = today.getMonth() - dateOfBirth.getMonth()
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dateOfBirth.getDate())) {
+    age--
+  }
+  return age
+}
+
+// POST - Request to join a group (for guests)
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const { id } = await params
+    const { message } = await request.json()
+
+    const group = await prisma.fellowshipGroup.findUnique({
+      where: { id },
+      include: { members: true },
+    })
+
+    if (!group) {
+      return NextResponse.json({ error: "Group not found" }, { status: 404 })
+    }
+
+    // Get user details for eligibility check
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { gender: true, dateOfBirth: true, marriedStatus: true },
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    // Check gender restriction
+    if (group.gender !== "ALL" && user.gender !== group.gender) {
+      return NextResponse.json({
+        error: `This group is for ${group.gender.toLowerCase()} members only.`
+      }, { status: 400 })
+    }
+
+    // Check age restriction
+    if (group.minAge !== null || group.maxAge !== null) {
+      if (!user.dateOfBirth) {
+        return NextResponse.json({
+          error: "This group has age restrictions. Please update your date of birth in your profile."
+        }, { status: 400 })
+      }
+      const userAge = calculateAge(user.dateOfBirth)
+      const ageRange = group.minAge !== null && group.maxAge !== null
+        ? `${group.minAge}-${group.maxAge}`
+        : group.minAge !== null
+          ? `${group.minAge}+`
+          : `under ${group.maxAge! + 1}`
+
+      if (group.minAge !== null && userAge < group.minAge) {
+        return NextResponse.json({
+          error: `This group is dedicated for ages ${ageRange}. You must be at least ${group.minAge} years old to join.`
+        }, { status: 400 })
+      }
+      if (group.maxAge !== null && userAge > group.maxAge) {
+        return NextResponse.json({
+          error: `This group is dedicated for ages ${ageRange}. Maximum age is ${group.maxAge} years old.`
+        }, { status: 400 })
+      }
+    }
+
+    // Check married-only restriction
+    if (group.marriedOnly && user.marriedStatus !== "MARRIED") {
+      return NextResponse.json({
+        error: "This group is for married couples only."
+      }, { status: 400 })
+    }
+
+    // Check if already a member
+    const isMember = group.members.some((m) => m.userId === session.user.id)
+    if (isMember) {
+      return NextResponse.json({ error: "You are already a member of this group" }, { status: 400 })
+    }
+
+    // Check if there's already a pending request
+    const existingRequest = await prisma.groupJoinRequest.findFirst({
+      where: { userId: session.user.id, groupId: id, status: "PENDING" },
+    })
+
+    if (existingRequest) {
+      return NextResponse.json({ error: "You already have a pending request for this group" }, { status: 400 })
+    }
+
+    const joinRequest = await prisma.groupJoinRequest.create({
+      data: {
+        userId: session.user.id,
+        groupId: id,
+        message: message || null,
+        status: "PENDING",
+      },
+    })
+
+    return NextResponse.json({ message: "Join request submitted successfully", request: joinRequest }, { status: 201 })
+  } catch (error) {
+    console.error("Join request error:", error)
+    return NextResponse.json({ error: "Failed to submit join request" }, { status: 500 })
+  }
+}
+
+// GET - Get join requests for a group (admin or leader only)
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const { id } = await params
+
+    const group = await prisma.fellowshipGroup.findUnique({
+      where: { id },
+      include: { members: true },
+    })
+
+    if (!group) {
+      return NextResponse.json({ error: "Group not found" }, { status: 404 })
+    }
+
+    // Check permissions
+    const isAdmin = session.user.role === "ADMIN"
+    const isLeader = group.members.some((m) => m.userId === session.user.id && m.role === "LEADER")
+
+    if (!isAdmin && !isLeader) {
+      return NextResponse.json({ error: "Not authorized to view join requests" }, { status: 403 })
+    }
+
+    const requests = await prisma.groupJoinRequest.findMany({
+      where: { groupId: id },
+      include: {
+        user: { select: { id: true, fullName: true, email: true, phone: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    })
+
+    return NextResponse.json({ requests })
+  } catch (error) {
+    console.error("Get join requests error:", error)
+    return NextResponse.json({ error: "Failed to fetch join requests" }, { status: 500 })
+  }
+}
+
+// PATCH - Approve or reject a join request (admin or leader only)
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const { id } = await params
+    const { requestId, status } = await request.json()
+
+    if (!["APPROVED", "REJECTED"].includes(status)) {
+      return NextResponse.json({ error: "Invalid status. Must be APPROVED or REJECTED" }, { status: 400 })
+    }
+
+    const group = await prisma.fellowshipGroup.findUnique({
+      where: { id },
+      include: { members: true, _count: { select: { members: true } } },
+    })
+
+    if (!group) {
+      return NextResponse.json({ error: "Group not found" }, { status: 404 })
+    }
+
+    // Check permissions
+    const isAdmin = session.user.role === "ADMIN"
+    const isLeader = group.members.some((m) => m.userId === session.user.id && m.role === "LEADER")
+
+    if (!isAdmin && !isLeader) {
+      return NextResponse.json({ error: "Not authorized to manage join requests" }, { status: 403 })
+    }
+
+    const joinRequest = await prisma.groupJoinRequest.findUnique({ where: { id: requestId } })
+    if (!joinRequest || joinRequest.groupId !== id) {
+      return NextResponse.json({ error: "Join request not found" }, { status: 404 })
+    }
+
+    // Update request status
+    await prisma.groupJoinRequest.update({ where: { id: requestId }, data: { status } })
+
+    // If approved, add user as member
+    if (status === "APPROVED") {
+      if (group._count.members >= group.maxMembers) {
+        return NextResponse.json({ error: "Group has reached maximum capacity" }, { status: 400 })
+      }
+      await prisma.fellowshipMembership.create({
+        data: { userId: joinRequest.userId, groupId: id, role: "MEMBER" },
+      })
+    }
+
+    return NextResponse.json({ message: `Request ${status.toLowerCase()} successfully` })
+  } catch (error) {
+    console.error("Update join request error:", error)
+    return NextResponse.json({ error: "Failed to update join request" }, { status: 500 })
+  }
+}
+
