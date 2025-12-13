@@ -17,6 +17,7 @@ async function main() {
       state: "IL",
       zipCode: "62701",
       gender: "MALE",
+      dateOfBirth: new Date("1965-03-15"), // 59 years old
       marriedStatus: "MARRIED",
       spouseGender: "FEMALE",
       isBaptized: true,
@@ -36,6 +37,7 @@ async function main() {
       state: "IL",
       zipCode: "62702",
       gender: "FEMALE",
+      dateOfBirth: new Date("1970-08-22"), // 54 years old
       marriedStatus: "MARRIED",
       spouseGender: "MALE",
       isBaptized: true,
@@ -48,7 +50,7 @@ async function main() {
     },
   ]
 
-  // 7 GUEST accounts (original 5 + 2 new) - createdAt within last 5 years, no joinedAt
+  // 10 GUEST accounts - createdAt within last 5 years, no joinedAt
   const guests = [
     {
       email: "guest1@example.com",
@@ -59,9 +61,10 @@ async function main() {
       state: "IL",
       zipCode: "62701",
       gender: "FEMALE",
+      dateOfBirth: new Date("1998-05-12"), // 26 years old - young adult
       marriedStatus: "SINGLE",
       isBaptized: false,
-      createdAt: new Date("2024-06-15"), // 6 months ago
+      createdAt: new Date("2024-06-15"),
     },
     {
       email: "guest2@example.com",
@@ -72,11 +75,12 @@ async function main() {
       state: "OH",
       zipCode: "43215",
       gender: "MALE",
+      dateOfBirth: new Date("1985-11-03"), // 39 years old
       marriedStatus: "MARRIED",
       spouseGender: "FEMALE",
       isBaptized: true,
       whenBaptized: new Date("2020-06-15"),
-      createdAt: new Date("2024-09-01"), // 3 months ago
+      createdAt: new Date("2024-09-01"),
     },
     {
       email: "guest3@example.com",
@@ -87,9 +91,10 @@ async function main() {
       state: "TX",
       zipCode: "73301",
       gender: "FEMALE",
+      dateOfBirth: new Date("1975-02-28"), // 49 years old
       marriedStatus: "DIVORCED",
       isBaptized: false,
-      createdAt: new Date("2023-03-20"), // ~2 years ago
+      createdAt: new Date("2023-03-20"),
     },
     {
       email: "guest4@example.com",
@@ -100,10 +105,11 @@ async function main() {
       state: "CO",
       zipCode: "80202",
       gender: "MALE",
+      dateOfBirth: new Date("1958-07-19"), // 66 years old - senior
       marriedStatus: "WIDOWED",
       isBaptized: true,
       whenBaptized: new Date("2015-03-22"),
-      createdAt: new Date("2024-11-25"), // 2 weeks ago
+      createdAt: new Date("2024-11-25"),
     },
     {
       email: "guest5@example.com",
@@ -114,9 +120,10 @@ async function main() {
       state: "WA",
       zipCode: "98101",
       gender: "FEMALE",
+      dateOfBirth: new Date("2000-09-14"), // 24 years old - young adult
       marriedStatus: "SINGLE",
       isBaptized: false,
-      createdAt: new Date("2024-11-20"), // 3 weeks ago
+      createdAt: new Date("2024-11-20"),
     },
     {
       email: "guest6@example.com",
@@ -127,10 +134,11 @@ async function main() {
       state: "NY",
       zipCode: "10024",
       gender: "FEMALE",
+      dateOfBirth: new Date("1992-04-05"), // 32 years old
       marriedStatus: "SINGLE",
       isBaptized: true,
       whenBaptized: new Date("2023-01-15"),
-      createdAt: new Date("2021-08-10"), // ~4 years ago
+      createdAt: new Date("2021-08-10"),
     },
     {
       email: "guest7@example.com",
@@ -141,13 +149,57 @@ async function main() {
       state: "PA",
       zipCode: "18503",
       gender: "MALE",
+      dateOfBirth: new Date("1962-03-15"), // 62 years old - senior
       marriedStatus: "DIVORCED",
       isBaptized: false,
-      createdAt: new Date("2022-05-15"), // ~2.5 years ago
+      createdAt: new Date("2022-05-15"),
+    },
+    {
+      email: "guest8@example.com",
+      fullName: "Tommy Chen",
+      phone: "(101) 202-0108",
+      address: "555 Youth Drive",
+      city: "Springfield",
+      state: "IL",
+      zipCode: "62701",
+      gender: "MALE",
+      dateOfBirth: new Date("2010-08-22"), // 14 years old - teenager
+      marriedStatus: "SINGLE",
+      isBaptized: false,
+      createdAt: new Date("2024-10-01"),
+    },
+    {
+      email: "guest9@example.com",
+      fullName: "Sarah Kim",
+      phone: "(101) 202-0109",
+      address: "666 Teen Lane",
+      city: "Springfield",
+      state: "IL",
+      zipCode: "62701",
+      gender: "FEMALE",
+      dateOfBirth: new Date("2008-12-10"), // 16 years old - teenager
+      marriedStatus: "SINGLE",
+      isBaptized: true,
+      whenBaptized: new Date("2024-06-15"),
+      createdAt: new Date("2024-08-15"),
+    },
+    {
+      email: "guest10@example.com",
+      fullName: "James Wilson Jr",
+      phone: "(101) 202-0110",
+      address: "777 Youth Street",
+      city: "Springfield",
+      state: "IL",
+      zipCode: "62701",
+      gender: "MALE",
+      dateOfBirth: new Date("2012-01-30"), // 12 years old - teenager
+      marriedStatus: "SINGLE",
+      isBaptized: false,
+      createdAt: new Date("2024-09-20"),
     },
   ]
 
-  // 15 MEMBER accounts (original 10 + 5 new) - createdAt <= joinedAt, joinedAt = membership approval date
+  // 15 MEMBER accounts - createdAt <= joinedAt, joinedAt = membership approval date
   const members = [
     {
       email: "member1@example.com",
@@ -158,12 +210,13 @@ async function main() {
       state: "OR",
       zipCode: "97201",
       gender: "MALE",
+      dateOfBirth: new Date("1980-06-15"), // 44 years old
       marriedStatus: "MARRIED",
       spouseGender: "FEMALE",
       isBaptized: true,
       whenBaptized: new Date("2018-04-10"),
-      createdAt: new Date("2018-03-15"), // Account created before membership
-      joinedAt: new Date("2018-05-01"), // Approved shortly after baptism
+      createdAt: new Date("2018-03-15"),
+      joinedAt: new Date("2018-05-01"),
     },
     {
       email: "member2@example.com",
@@ -174,11 +227,12 @@ async function main() {
       state: "AZ",
       zipCode: "85001",
       gender: "FEMALE",
+      dateOfBirth: new Date("1995-03-22"), // 29 years old - young adult
       marriedStatus: "SINGLE",
       isBaptized: true,
       whenBaptized: new Date("2019-08-25"),
-      createdAt: new Date("2019-08-01"), // Account created before transfer
-      joinedAt: new Date("2019-09-15"), // Transfer-in approved
+      createdAt: new Date("2019-08-01"),
+      joinedAt: new Date("2019-09-15"),
     },
     {
       email: "member3@example.com",
@@ -189,6 +243,7 @@ async function main() {
       state: "TN",
       zipCode: "37201",
       gender: "MALE",
+      dateOfBirth: new Date("1978-11-08"), // 46 years old
       marriedStatus: "MARRIED",
       spouseGender: "FEMALE",
       isBaptized: true,
@@ -205,6 +260,7 @@ async function main() {
       state: "FL",
       zipCode: "33101",
       gender: "FEMALE",
+      dateOfBirth: new Date("1968-09-30"), // 56 years old - senior
       marriedStatus: "DIVORCED",
       isBaptized: true,
       whenBaptized: new Date("2016-07-14"),
@@ -220,6 +276,7 @@ async function main() {
       state: "GA",
       zipCode: "30301",
       gender: "MALE",
+      dateOfBirth: new Date("1982-04-12"), // 42 years old
       marriedStatus: "MARRIED",
       spouseGender: "FEMALE",
       isBaptized: true,
@@ -236,6 +293,7 @@ async function main() {
       state: "MA",
       zipCode: "02101",
       gender: "FEMALE",
+      dateOfBirth: new Date("1997-07-25"), // 27 years old - young adult
       marriedStatus: "SINGLE",
       isBaptized: true,
       whenBaptized: new Date("2020-11-08"),
@@ -251,10 +309,11 @@ async function main() {
       state: "IL",
       zipCode: "60601",
       gender: "MALE",
+      dateOfBirth: new Date("1955-12-03"), // 69 years old - senior
       marriedStatus: "WIDOWED",
       isBaptized: true,
       whenBaptized: new Date("2010-05-20"),
-      createdAt: new Date("2010-04-01"), // Long-time member
+      createdAt: new Date("2010-04-01"),
       joinedAt: new Date("2010-06-01"),
     },
     {
@@ -266,6 +325,7 @@ async function main() {
       state: "CA",
       zipCode: "92101",
       gender: "FEMALE",
+      dateOfBirth: new Date("1988-02-14"), // 36 years old
       marriedStatus: "MARRIED",
       spouseGender: "MALE",
       isBaptized: true,
@@ -286,6 +346,7 @@ async function main() {
       state: "TX",
       zipCode: "75201",
       gender: "MALE",
+      dateOfBirth: new Date("1999-01-15"), // 25 years old - young adult
       marriedStatus: "SINGLE",
       isBaptized: true,
       whenBaptized: new Date("2022-06-18"),
@@ -301,6 +362,7 @@ async function main() {
       state: "PA",
       zipCode: "19101",
       gender: "FEMALE",
+      dateOfBirth: new Date("1990-08-05"), // 34 years old
       marriedStatus: "MARRIED",
       spouseGender: "MALE",
       isBaptized: true,
@@ -317,6 +379,7 @@ async function main() {
       state: "CA",
       zipCode: "94102",
       gender: "MALE",
+      dateOfBirth: new Date("1996-05-28"), // 28 years old - young adult
       marriedStatus: "SINGLE",
       isBaptized: true,
       whenBaptized: new Date("2021-03-28"),
@@ -332,6 +395,7 @@ async function main() {
       state: "CA",
       zipCode: "90001",
       gender: "FEMALE",
+      dateOfBirth: new Date("1985-07-12"), // 39 years old
       marriedStatus: "MARRIED",
       spouseGender: "MALE",
       isBaptized: true,
@@ -348,10 +412,11 @@ async function main() {
       state: "TX",
       zipCode: "77001",
       gender: "MALE",
+      dateOfBirth: new Date("1950-11-20"), // 74 years old - senior
       marriedStatus: "WIDOWED",
       isBaptized: true,
       whenBaptized: new Date("2005-11-20"),
-      createdAt: new Date("2012-01-10"), // Long-time member
+      createdAt: new Date("2012-01-10"),
       joinedAt: new Date("2012-03-15"),
     },
     {
@@ -363,6 +428,7 @@ async function main() {
       state: "FL",
       zipCode: "32801",
       gender: "FEMALE",
+      dateOfBirth: new Date("1994-04-15"), // 30 years old - young adult
       marriedStatus: "SINGLE",
       isBaptized: true,
       whenBaptized: new Date("2020-08-15"),
@@ -378,12 +444,96 @@ async function main() {
       state: "NC",
       zipCode: "28201",
       gender: "MALE",
+      dateOfBirth: new Date("1975-05-30"), // 49 years old
       marriedStatus: "MARRIED",
       spouseGender: "FEMALE",
       isBaptized: true,
       whenBaptized: new Date("2017-05-30"),
       createdAt: new Date("2017-05-01"),
       joinedAt: new Date("2017-07-01"),
+    },
+    // Additional members for different groups
+    {
+      email: "member16@example.com",
+      fullName: "Robert Senior",
+      phone: "(101) 202-0216",
+      address: "1616 Elder Lane",
+      city: "Springfield",
+      state: "IL",
+      zipCode: "62701",
+      gender: "MALE",
+      dateOfBirth: new Date("1960-03-10"), // 64 years old - senior
+      marriedStatus: "MARRIED",
+      spouseGender: "FEMALE",
+      isBaptized: true,
+      whenBaptized: new Date("1985-06-15"),
+      createdAt: new Date("2015-01-15"),
+      joinedAt: new Date("2015-03-01"),
+    },
+    {
+      email: "member17@example.com",
+      fullName: "Margaret Elder",
+      phone: "(101) 202-0217",
+      address: "1717 Wisdom Way",
+      city: "Springfield",
+      state: "IL",
+      zipCode: "62701",
+      gender: "FEMALE",
+      dateOfBirth: new Date("1958-07-22"), // 66 years old - senior
+      marriedStatus: "MARRIED",
+      spouseGender: "MALE",
+      isBaptized: true,
+      whenBaptized: new Date("1980-04-20"),
+      createdAt: new Date("2014-06-10"),
+      joinedAt: new Date("2014-08-15"),
+    },
+    {
+      email: "member18@example.com",
+      fullName: "David Young",
+      phone: "(101) 202-0218",
+      address: "1818 Youth Avenue",
+      city: "Springfield",
+      state: "IL",
+      zipCode: "62701",
+      gender: "MALE",
+      dateOfBirth: new Date("2002-09-05"), // 22 years old - young adult
+      marriedStatus: "SINGLE",
+      isBaptized: true,
+      whenBaptized: new Date("2020-12-20"),
+      createdAt: new Date("2021-01-05"),
+      joinedAt: new Date("2021-03-15"),
+    },
+    {
+      email: "member19@example.com",
+      fullName: "Jessica Young",
+      phone: "(101) 202-0219",
+      address: "1919 Campus Drive",
+      city: "Springfield",
+      state: "IL",
+      zipCode: "62701",
+      gender: "FEMALE",
+      dateOfBirth: new Date("2001-11-18"), // 23 years old - young adult
+      marriedStatus: "SINGLE",
+      isBaptized: true,
+      whenBaptized: new Date("2019-08-10"),
+      createdAt: new Date("2020-02-20"),
+      joinedAt: new Date("2020-04-01"),
+    },
+    {
+      email: "member20@example.com",
+      fullName: "Thomas Teen",
+      phone: "(101) 202-0220",
+      address: "2020 High School Road",
+      city: "Springfield",
+      state: "IL",
+      zipCode: "62701",
+      gender: "MALE",
+      dateOfBirth: new Date("2009-05-12"), // 15 years old - teenager
+      marriedStatus: "SINGLE",
+      isBaptized: true,
+      whenBaptized: new Date("2024-01-15"),
+      createdAt: new Date("2023-09-01"),
+      joinedAt: new Date("2024-02-01"),
     },
   ]
 
@@ -559,6 +709,241 @@ async function main() {
       console.log(`Created request: ${request.title} (${request.status}) for user ${request.userId}`)
     } else {
       console.log(`Skipped (exists): ${request.title} for user ${request.userId}`)
+    }
+  }
+
+  // Seed Fellowship Groups with different visibility levels
+  console.log("Seeding fellowship groups...")
+
+  const admin1 = await prisma.user.findUnique({ where: { email: "admin1@example.com" } })
+  const member3 = await prisma.user.findUnique({ where: { email: "member3@example.com" } })
+  const member4 = await prisma.user.findUnique({ where: { email: "member4@example.com" } })
+  const member5 = await prisma.user.findUnique({ where: { email: "member5@example.com" } })
+  const member16 = await prisma.user.findUnique({ where: { email: "member16@example.com" } })
+  const member17 = await prisma.user.findUnique({ where: { email: "member17@example.com" } })
+
+  if (admin1 && member3 && member4 && member5) {
+    const groupsData = [
+      // Community Outreach Team - no restrictions
+      {
+        name: "Community Outreach Team",
+        description: "Dedicated to serving our local community through various outreach programs including food drives, homeless ministry, blood drives, and neighborhood clean-ups. Open to everyone who wants to make a difference!",
+        visibility: "PUBLIC",
+        scheduleType: "ADHOC",
+        scheduleDetails: "Meets as needed for outreach events",
+        maxMembers: 20,  // Max is 20
+        createdById: member5.id,
+      },
+      // Young Adults Fellowship - age 18-30
+      {
+        name: "Young Adults Fellowship",
+        description: "A vibrant community for young adults (18-30) to grow in faith together. We meet weekly for Bible study, worship, and fellowship. Our group focuses on navigating life's challenges with a Christ-centered perspective.",
+        visibility: "PUBLIC",
+        scheduleType: "RECURRING",
+        scheduleDetails: "Every Friday 7:00 PM",
+        maxMembers: 15,
+        minAge: 18,
+        maxAge: 30,
+        createdById: member3.id,
+      },
+      // Women's Bible Study - Female only
+      {
+        name: "Women's Bible Study",
+        description: "A nurturing environment for women to dive deep into Scripture together. We explore various books of the Bible and discuss how to apply God's truth to our daily lives as wives, mothers, professionals, and servants of Christ.",
+        visibility: "PUBLIC",
+        scheduleType: "RECURRING",
+        scheduleDetails: "Every Wednesday 10:00 AM",
+        maxMembers: 12,
+        gender: "FEMALE",
+        createdById: member4.id,
+      },
+      // Men's Prayer Breakfast - Male only
+      {
+        name: "Men's Prayer Breakfast",
+        description: "A weekly gathering for men to share breakfast, pray together, and study God's Word. We focus on building strong Christian men who lead their families and communities with integrity.",
+        visibility: "INTERNAL",
+        scheduleType: "RECURRING",
+        scheduleDetails: "Every Saturday 7:00 AM",
+        maxMembers: 15,
+        gender: "MALE",
+        createdById: admin1.id,
+      },
+      // Teenage Group - age 10-17
+      {
+        name: "Youth Group",
+        description: "A fun and engaging group for teenagers to learn about faith, build friendships, and grow together. We have games, worship, and Bible studies designed just for teens!",
+        visibility: "PUBLIC",
+        scheduleType: "RECURRING",
+        scheduleDetails: "Every Sunday 6:00 PM",
+        maxMembers: 20,
+        minAge: 10,
+        maxAge: 17,
+        createdById: admin1.id,
+      },
+      // Senior Fellowship - age 55+
+      {
+        name: "Senior Fellowship",
+        description: "A warm community for our seasoned saints to share wisdom, pray together, and enjoy fellowship. We celebrate life experiences and support one another through all seasons.",
+        visibility: "PUBLIC",
+        scheduleType: "RECURRING",
+        scheduleDetails: "Every Thursday 10:00 AM",
+        maxMembers: 15,
+        minAge: 55,
+        createdById: member16?.id || admin1.id,
+      },
+      // Senior Men's Fellowship - Male, age 55+
+      {
+        name: "Senior Men's Fellowship",
+        description: "A brotherhood for men 55 and older to share life experiences, pray together, and encourage one another. We focus on mentoring younger generations and leaving a godly legacy.",
+        visibility: "INTERNAL",
+        scheduleType: "RECURRING",
+        scheduleDetails: "Every Tuesday 9:00 AM",
+        maxMembers: 10,
+        gender: "MALE",
+        minAge: 55,
+        createdById: member16?.id || admin1.id,
+      },
+      // Senior Women's Fellowship - Female, age 55+
+      {
+        name: "Senior Women's Fellowship",
+        description: "A sisterhood for women 55 and older to share wisdom, support each other, and grow in faith together. We embrace our role as Titus 2 women mentoring the next generation.",
+        visibility: "INTERNAL",
+        scheduleType: "RECURRING",
+        scheduleDetails: "Every Tuesday 2:00 PM",
+        maxMembers: 10,
+        gender: "FEMALE",
+        minAge: 55,
+        createdById: member17?.id || member4.id,
+      },
+      // Married Couples Fellowship - married only
+      {
+        name: "Married Couples Fellowship",
+        description: "A supportive community for married couples to strengthen their marriages through biblical principles. We share meals, study together, and build lasting friendships with other couples.",
+        visibility: "PUBLIC",
+        scheduleType: "RECURRING",
+        scheduleDetails: "Second Saturday of each month 6:00 PM",
+        maxMembers: 15,
+        marriedOnly: true,
+        createdById: member3.id,
+      },
+      // Leadership Team - private
+      {
+        name: "Leadership Team",
+        description: "Private group for church leadership to coordinate ministry activities, discuss strategic planning, and pray for the congregation.",
+        visibility: "PRIVATE",
+        scheduleType: "RECURRING",
+        scheduleDetails: "First Monday of each month 6:00 PM",
+        maxMembers: 8,
+        createdById: admin1.id,
+      },
+    ]
+
+    // Get all members with their details for proper group assignment
+    const allMemberUsers = await prisma.user.findMany({
+      where: { role: "MEMBER" },
+    })
+
+    // Helper function to calculate age
+    const calculateAge = (dob: Date | null): number => {
+      if (!dob) return 0
+      const today = new Date()
+      let age = today.getFullYear() - dob.getFullYear()
+      const monthDiff = today.getMonth() - dob.getMonth()
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+        age--
+      }
+      return age
+    }
+
+    // Helper function to check if a member matches group requirements
+    const memberMatchesGroup = (member: typeof allMemberUsers[0], groupData: typeof groupsData[0]): boolean => {
+      // Gender check
+      if (groupData.gender && groupData.gender !== "ALL" && member.gender !== groupData.gender) {
+        return false
+      }
+      // Age check
+      const age = calculateAge(member.dateOfBirth)
+      if (groupData.minAge && age < groupData.minAge) return false
+      if (groupData.maxAge && age > groupData.maxAge) return false
+      // Married check
+      if (groupData.marriedOnly && member.marriedStatus !== "MARRIED") return false
+      return true
+    }
+
+    for (const groupData of groupsData) {
+      const existingGroup = await prisma.fellowshipGroup.findFirst({
+        where: { name: groupData.name },
+      })
+
+      if (!existingGroup) {
+        const group = await prisma.fellowshipGroup.create({
+          data: groupData,
+        })
+
+        // Add creator as leader (leaders don't need to match age/gender requirements)
+        await prisma.fellowshipMembership.create({
+          data: {
+            userId: groupData.createdById,
+            groupId: group.id,
+            role: "LEADER",
+          },
+        })
+
+        console.log(`Created group: ${group.name} (${group.visibility})`)
+
+        // Find eligible members based on group restrictions (excluding the creator)
+        const eligibleMembers = allMemberUsers.filter(m =>
+          m.id !== groupData.createdById && memberMatchesGroup(m, groupData)
+        )
+
+        // Add up to 3 eligible members to each group
+        for (const memberToAdd of eligibleMembers.slice(0, 3)) {
+          const existingMembership = await prisma.fellowshipMembership.findFirst({
+            where: { userId: memberToAdd.id, groupId: group.id },
+          })
+          if (!existingMembership) {
+            await prisma.fellowshipMembership.create({
+              data: {
+                userId: memberToAdd.id,
+                groupId: group.id,
+                role: "MEMBER",
+              },
+            })
+            console.log(`  Added member ${memberToAdd.fullName} to ${group.name}`)
+          }
+        }
+
+        // Add sample events to each group
+        const now = new Date()
+        let events = []
+
+        // Special events for Community Outreach Team
+        if (group.name === "Community Outreach Team") {
+          events = [
+            { groupId: group.id, title: "Monthly Food Package Distribution", description: "Prepare and distribute food packages to families in need", eventTime: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000), eventType: "OFFLINE", location: "Church Parking Lot", status: "PLANNED" },
+            { groupId: group.id, title: "Community Food Delivery", description: "Deliver meals to homebound seniors", eventTime: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000), eventType: "OFFLINE", location: "Church Kitchen", status: "PLANNED" },
+            { groupId: group.id, title: "Blood Drive", description: "Partner with Red Cross for community blood drive", eventTime: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000), eventType: "OFFLINE", location: "Fellowship Hall", status: "PLANNED" },
+            { groupId: group.id, title: "Annual Open House", description: "Welcome the community to tour our facilities", eventTime: new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000), eventType: "OFFLINE", location: "Entire Campus", status: "PLANNED" },
+            { groupId: group.id, title: "Thanksgiving Free Lunch", description: "Serve free Thanksgiving meals to the community", eventTime: new Date("2024-11-28"), eventType: "OFFLINE", location: "Fellowship Hall", status: "COMPLETED" },
+            { groupId: group.id, title: "Christmas Party", description: "Annual community Christmas celebration with gifts for children", eventTime: new Date("2024-12-21"), eventType: "OFFLINE", location: "Church Auditorium", status: "COMPLETED" },
+            { groupId: group.id, title: "Neighborhood Cleanup", description: "Spring cleaning of local parks and streets", eventTime: new Date("2024-04-20"), eventType: "OFFLINE", location: "Community Park", status: "COMPLETED" },
+            { groupId: group.id, title: "Back to School Supply Drive", description: "Distribute school supplies to underprivileged children", eventTime: new Date("2024-08-15"), eventType: "OFFLINE", location: "Church Lobby", status: "COMPLETED" },
+          ]
+        } else {
+          events = [
+            { groupId: group.id, title: `${group.name} - Weekly Meeting`, description: "Our regular weekly gathering", eventTime: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000), eventType: "OFFLINE", location: "Main Fellowship Hall", status: "PLANNED" },
+            { groupId: group.id, title: `${group.name} - Special Event`, description: "A special gathering for our group", eventTime: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000), eventType: "OFFLINE", location: "Church Auditorium", status: "COMPLETED" },
+            { groupId: group.id, title: `${group.name} - Online Prayer`, description: "Virtual prayer meeting via Zoom", eventTime: new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000), eventType: "ONLINE", location: "Zoom Meeting", status: "IN_PROGRESS" },
+          ]
+        }
+
+        for (const eventData of events) {
+          await prisma.groupEvent.create({ data: eventData })
+        }
+        console.log(`  Added ${events.length} events to ${group.name}`)
+      } else {
+        console.log(`Skipped (exists): ${groupData.name}`)
+      }
     }
   }
 
