@@ -947,6 +947,140 @@ async function main() {
     }
   }
 
+  // Seed Testimonies
+  console.log("Seeding testimonies...")
+
+  const allUsers = await prisma.user.findMany()
+  const adminUsers = allUsers.filter(u => u.role === "ADMIN")
+  const memberUsers = allUsers.filter(u => u.role === "MEMBER")
+
+  // Get specific users for testimonies
+  const testimonyAdmin = adminUsers[0] // For reviewedBy
+
+  // Published testimonies (12 total)
+  const publishedTestimonies = [
+    { title: "Found Peace in Christ", description: "After years of searching for meaning, I finally found peace when I accepted Jesus into my life. This church community has been instrumental in my spiritual growth.", userId: memberUsers[0]?.id },
+    { title: "Healed from Addiction", description: "I was struggling with addiction for 10 years. Through prayer, counseling, and the support of this amazing church family, God delivered me completely. I've been sober for 3 years now.", userId: memberUsers[1]?.id },
+    { title: "Marriage Restored", description: "My marriage was on the brink of divorce. Through the couples fellowship and pastoral guidance, God restored our relationship. We're now stronger than ever.", userId: memberUsers[2]?.id },
+    { title: "From Doubt to Faith", description: "I came to this church as a skeptic, just accompanying my wife. The genuine love I experienced and the powerful teaching transformed my heart. Now I serve in the worship team.", userId: memberUsers[3]?.id },
+    { title: "God's Provision in Job Loss", description: "When I lost my job, I was devastated. But God used that season to draw me closer to Him. The church supported my family, and I found an even better job within months.", userId: memberUsers[4]?.id },
+    { title: "Healing from Grief", description: "After losing my mother, I was consumed by grief. The compassion of this community helped me process my pain and find hope in Christ's promise of eternal life.", userId: memberUsers[5]?.id },
+    { title: "Delivered from Fear", description: "Anxiety controlled my life for years. Through consistent prayer and the faith of believers around me, God has given me a peace that surpasses understanding.", userId: memberUsers[6]?.id },
+    { title: "Finding Purpose", description: "I spent decades chasing success but felt empty. At 55, I discovered my true purpose in serving others through the senior fellowship. Life has never been more fulfilling.", userId: memberUsers[7]?.id },
+    { title: "Youth Transformed", description: "As a teenager, I was heading down the wrong path. The youth group leaders invested in me and showed me a better way. Now I mentor other young people.", userId: memberUsers[8]?.id },
+    { title: "Miraculous Healing", description: "Doctors gave me 6 months to live. The church rallied in prayer, and today I'm cancer-free. God is still in the miracle business!", userId: memberUsers[9]?.id },
+    { title: "Restored Relationship with Father", description: "I hadn't spoken to my father in 15 years. God worked in both our hearts through separate churches, and we reconciled last Easter. Family is precious.", userId: memberUsers[10]?.id },
+    { title: "From Homeless to Hopeful", description: "I was living on the streets when someone from this church brought me a meal and told me about Jesus. They helped me get back on my feet. Now I volunteer at the shelter.", userId: memberUsers[11]?.id },
+  ]
+
+  for (const testimony of publishedTestimonies) {
+    if (!testimony.userId) continue
+    const existing = await prisma.testimony.findFirst({
+      where: { userId: testimony.userId, title: testimony.title }
+    })
+    if (!existing) {
+      await prisma.testimony.create({
+        data: {
+          ...testimony,
+          status: "PUBLISHED",
+          reviewedBy: testimonyAdmin?.id,
+          reviewedAt: new Date(Date.now() - Math.random() * 90 * 24 * 60 * 60 * 1000), // Random date in last 90 days
+        }
+      })
+      console.log(`Created PUBLISHED testimony: ${testimony.title}`)
+    }
+  }
+
+  // Pending approval testimonies (4 total)
+  const pendingTestimonies = [
+    { title: "New Beginning", description: "I just started my faith journey last month. The welcome I received here was overwhelming. Looking forward to growing with this family.", userId: memberUsers[12]?.id },
+    { title: "God's Faithfulness", description: "Through every season of life, God has been faithful. I want to share how He carried me through the loss of my business and helped me start again.", userId: memberUsers[13]?.id },
+    { title: "Answered Prayer", description: "We prayed for a child for 7 years. Last month, we received news that our adoption is finalized. God answers prayers in His perfect timing.", userId: memberUsers[14]?.id },
+    { title: "Breaking Generational Cycles", description: "I come from a family with no faith background. Christ broke the cycle of brokenness in my family. My children will know the Lord.", userId: memberUsers[15]?.id },
+  ]
+
+  for (const testimony of pendingTestimonies) {
+    if (!testimony.userId) continue
+    const existing = await prisma.testimony.findFirst({
+      where: { userId: testimony.userId, title: testimony.title }
+    })
+    if (!existing) {
+      await prisma.testimony.create({
+        data: { ...testimony, status: "PENDING_APPROVAL" }
+      })
+      console.log(`Created PENDING_APPROVAL testimony: ${testimony.title}`)
+    }
+  }
+
+  // Draft testimonies (4 total)
+  const draftTestimonies = [
+    { title: "My Story", description: "Working on sharing my testimony...", userId: memberUsers[16]?.id },
+    { title: "God is Good", description: "I want to share how God has been working in my life recently.", userId: memberUsers[17]?.id },
+    { title: "Journey to Faith", description: "Still writing my story of how I came to know Christ.", userId: adminUsers[0]?.id },
+    { title: "Grateful Heart", description: "So many things to be thankful for...", userId: adminUsers[1]?.id },
+  ]
+
+  for (const testimony of draftTestimonies) {
+    if (!testimony.userId) continue
+    const existing = await prisma.testimony.findFirst({
+      where: { userId: testimony.userId, title: testimony.title }
+    })
+    if (!existing) {
+      await prisma.testimony.create({
+        data: { ...testimony, status: "DRAFT" }
+      })
+      console.log(`Created DRAFT testimony: ${testimony.title}`)
+    }
+  }
+
+  // Rejected testimonies (3 total)
+  const rejectedTestimonies = [
+    { title: "Quick Note", description: "God is good.", userId: memberUsers[0]?.id, adminComment: "Please provide more detail about your experience. We'd love to hear your full story!" },
+    { title: "Test", description: "Testing the system.", userId: memberUsers[1]?.id, adminComment: "This appears to be a test submission. Please submit your actual testimony when ready." },
+    { title: "My Faith", description: "I believe in God.", userId: memberUsers[2]?.id, adminComment: "Thank you for your faith! Could you share more about your personal journey and how God has worked in your life?" },
+  ]
+
+  for (const testimony of rejectedTestimonies) {
+    if (!testimony.userId) continue
+    const existing = await prisma.testimony.findFirst({
+      where: { userId: testimony.userId, title: testimony.title }
+    })
+    if (!existing) {
+      await prisma.testimony.create({
+        data: {
+          title: testimony.title,
+          description: testimony.description,
+          userId: testimony.userId,
+          status: "REJECTED",
+          reviewedBy: testimonyAdmin?.id,
+          reviewedAt: new Date(),
+          adminComment: testimony.adminComment,
+        }
+      })
+      console.log(`Created REJECTED testimony: ${testimony.title}`)
+    }
+  }
+
+  // Cancelled testimonies (3 total)
+  const cancelledTestimonies = [
+    { title: "Changed My Mind", description: "I was going to share but decided to wait.", userId: memberUsers[3]?.id },
+    { title: "Not Ready Yet", description: "Still processing my journey.", userId: memberUsers[4]?.id },
+    { title: "Will Resubmit Later", description: "Need to think about this more.", userId: memberUsers[5]?.id },
+  ]
+
+  for (const testimony of cancelledTestimonies) {
+    if (!testimony.userId) continue
+    const existing = await prisma.testimony.findFirst({
+      where: { userId: testimony.userId, title: testimony.title }
+    })
+    if (!existing) {
+      await prisma.testimony.create({
+        data: { ...testimony, status: "CANCELLED" }
+      })
+      console.log(`Created CANCELLED testimony: ${testimony.title}`)
+    }
+  }
+
   console.log("Seeding completed!")
 }
 

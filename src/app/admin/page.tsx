@@ -114,6 +114,11 @@ export default function AdminDashboard() {
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 transition">Join Requests</h3>
             <p className="text-gray-600 dark:text-gray-400 mt-2">Review and approve group join requests</p>
           </Link>
+
+          <Link href="/admin/testimonies" className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 hover:shadow-xl transition group">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 transition">Testimony Requests</h3>
+            <p className="text-gray-600 dark:text-gray-400 mt-2">Review and publish member testimonies</p>
+          </Link>
         </div>
       </div>
     </div>

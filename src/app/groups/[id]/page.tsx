@@ -22,6 +22,22 @@ interface GroupEvent {
   status: string
 }
 
+interface JoinRequest {
+  id: string
+  status: string
+  message: string | null
+  createdAt: string
+  user: {
+    id: string
+    fullName: string | null
+    email: string
+    image: string | null
+    gender: string | null
+    dateOfBirth: string | null
+    marriedStatus: string | null
+  }
+}
+
 interface Group {
   id: string
   name: string
@@ -49,7 +65,7 @@ interface Group {
   _count: { members: number; events: number }
 }
 
-type TabType = "members" | "inprogress" | "upcoming" | "history"
+type TabType = "tasks" | "members" | "inprogress" | "upcoming" | "history"
 
 export default function GroupDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -69,11 +85,23 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
   const [showCreateEventModal, setShowCreateEventModal] = useState(false)
   const [showEditEventModal, setShowEditEventModal] = useState(false)
   const [editingEvent, setEditingEvent] = useState<GroupEvent | null>(null)
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([])
+  const [pendingRequestCount, setPendingRequestCount] = useState(0)
 
   useEffect(() => {
     fetchGroup()
     checkPendingRequest()
   }, [id])
+
+  useEffect(() => {
+    // Fetch join requests when user is a leader
+    if (group && session?.user) {
+      const isLeaderOrAdmin = group.leaders?.some((m) => m.userId === session.user.id) || session.user.role === "ADMIN"
+      if (isLeaderOrAdmin) {
+        fetchJoinRequests()
+      }
+    }
+  }, [group, session])
 
   const fetchGroup = async () => {
     try {
@@ -109,6 +137,41 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
       }
     } catch {
       // Ignore errors - user might not be logged in
+    }
+  }
+
+  const fetchJoinRequests = async () => {
+    try {
+      const response = await fetch(`/api/groups/${id}/join-requests`)
+      const data = await response.json()
+      if (response.ok) {
+        setJoinRequests(data.requests || [])
+        setPendingRequestCount(data.requests?.length || 0)
+      }
+    } catch {
+      // Ignore errors
+    }
+  }
+
+  const handleJoinRequestAction = async (requestId: string, action: "approve" | "reject", comment: string) => {
+    try {
+      const response = await fetch(`/api/groups/${id}/join-requests`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId, action, comment }),
+      })
+      const data = await response.json()
+      if (response.ok) {
+        setMessage({ type: "success", text: data.message })
+        fetchJoinRequests()
+        if (action === "approve") {
+          fetchGroup() // Refresh member count
+        }
+      } else {
+        setMessage({ type: "error", text: data.error })
+      }
+    } catch {
+      setMessage({ type: "error", text: "Failed to process request" })
     }
   }
 
@@ -264,6 +327,8 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
                   onDelete={handleDelete}
                   onInvite={() => setShowInviteModal(true)}
                   onCreateEvent={() => setShowCreateEventModal(true)}
+                  pendingTaskCount={(isLeader || isAdmin) ? pendingRequestCount : undefined}
+                  onTaskClick={(isLeader || isAdmin) ? () => setActiveTab("tasks") : undefined}
                 />
 
                 {/* Join Request Section for non-members */}
@@ -279,8 +344,9 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
 
                 {/* Tabs */}
                 <div className="border-t dark:border-gray-700 pt-6">
-                  <div className="flex gap-1 mb-6 border-b dark:border-gray-700">
+                  <div className="flex gap-1 mb-6 border-b dark:border-gray-700 overflow-x-auto">
                     {[
+                      ...(isLeader || isAdmin ? [{ key: "tasks" as TabType, label: "📋 Tasks", count: pendingRequestCount, highlight: pendingRequestCount > 0 }] : []),
                       { key: "members" as TabType, label: "Members", count: group.members?.length || 0 },
                       { key: "inprogress" as TabType, label: "In Progress", count: group.inProgressEvents?.length || 0 },
                       { key: "upcoming" as TabType, label: "Upcoming", count: group.upcomingEvents?.length || 0 },
@@ -289,13 +355,18 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
                       <button
                         key={tab.key}
                         onClick={() => setActiveTab(tab.key)}
-                        className={`px-4 py-3 font-medium text-sm transition-colors relative ${
+                        className={`px-4 py-3 font-medium text-sm transition-colors relative whitespace-nowrap ${
                           activeTab === tab.key
                             ? "text-blue-600 dark:text-blue-400"
-                            : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                            : "highlight" in tab && tab.highlight
+                              ? "text-orange-600 dark:text-orange-400"
+                              : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                         }`}
                       >
                         {tab.label} ({tab.count})
+                        {"highlight" in tab && tab.highlight && activeTab !== tab.key && (
+                          <span className="absolute top-2 right-1 w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
+                        )}
                         {activeTab === tab.key && (
                           <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400" />
                         )}
@@ -304,6 +375,12 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
                   </div>
 
                   {/* Tab Content */}
+                  {activeTab === "tasks" && (isLeader || isAdmin) && (
+                    <JoinRequestsTab
+                      requests={joinRequests}
+                      onAction={handleJoinRequestAction}
+                    />
+                  )}
                   {activeTab === "members" && (
                     <MembersTab
                       members={group.members}
@@ -446,8 +523,8 @@ function MarriedOnlyBadge({ marriedOnly }: { marriedOnly: boolean }) {
   )
 }
 
-function GroupHeader({ group, canEdit, canDelete, onEdit, onDelete, onInvite, onCreateEvent }: {
-  group: Group; canEdit: boolean; canDelete: boolean; onEdit: () => void; onDelete: () => void; onInvite: () => void; onCreateEvent: () => void
+function GroupHeader({ group, canEdit, canDelete, onEdit, onDelete, onInvite, onCreateEvent, pendingTaskCount, onTaskClick }: {
+  group: Group; canEdit: boolean; canDelete: boolean; onEdit: () => void; onDelete: () => void; onInvite: () => void; onCreateEvent: () => void; pendingTaskCount?: number; onTaskClick?: () => void
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -492,54 +569,72 @@ function GroupHeader({ group, canEdit, canDelete, onEdit, onDelete, onInvite, on
           )}
         </div>
       </div>
-      {canEdit && (
-        <div className="relative" ref={menuRef}>
+      <div className="flex items-center gap-2">
+        {/* Task Icon - show when there are pending requests */}
+        {pendingTaskCount !== undefined && pendingTaskCount > 0 && onTaskClick && (
           <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
-            aria-label="Group actions"
+            onClick={onTaskClick}
+            className="relative p-2 hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded-lg transition"
+            aria-label="View pending tasks"
+            title={`${pendingTaskCount} pending request(s)`}
           >
-            <svg className="w-6 h-6 text-gray-600 dark:text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-              <circle cx="12" cy="5" r="2" />
-              <circle cx="12" cy="12" r="2" />
-              <circle cx="12" cy="19" r="2" />
+            <svg className="w-6 h-6 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
             </svg>
+            <span className="absolute -top-1 -right-1 w-5 h-5 bg-orange-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+              {pendingTaskCount}
+            </span>
           </button>
-          {menuOpen && (
-            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg py-2 border dark:border-gray-700 z-10">
-              <button
-                onClick={() => { onEdit(); setMenuOpen(false) }}
-                className="w-full text-left px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-              >
-                <span>✏️</span> Edit Group
-              </button>
-              <button
-                onClick={() => { onInvite(); setMenuOpen(false) }}
-                className="w-full text-left px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-              >
-                <span>👤</span> Invite Members
-              </button>
-              <button
-                onClick={() => { onCreateEvent(); setMenuOpen(false) }}
-                className="w-full text-left px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-              >
-                <span>📅</span> New Event
-              </button>
-              {canDelete && (
-                <>
-                  <hr className="my-2 border-gray-200 dark:border-gray-700" />
-                  <button
-                    onClick={() => { onDelete(); setMenuOpen(false) }}
-                    className="w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                  >
-                    <span>🗑️</span> Delete Group
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+        )}
+        {canEdit && (
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
+              aria-label="Group actions"
+            >
+              <svg className="w-6 h-6 text-gray-600 dark:text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="5" r="2" />
+                <circle cx="12" cy="12" r="2" />
+                <circle cx="12" cy="19" r="2" />
+              </svg>
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg py-2 border dark:border-gray-700 z-10">
+                <button
+                  onClick={() => { onEdit(); setMenuOpen(false) }}
+                  className="w-full text-left px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                >
+                  <span>✏️</span> Edit Group
+                </button>
+                <button
+                  onClick={() => { onInvite(); setMenuOpen(false) }}
+                  className="w-full text-left px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                >
+                  <span>👤</span> Invite Members
+                </button>
+                <button
+                  onClick={() => { onCreateEvent(); setMenuOpen(false) }}
+                  className="w-full text-left px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                >
+                  <span>📅</span> New Event
+                </button>
+                {canDelete && (
+                  <>
+                    <hr className="my-2 border-gray-200 dark:border-gray-700" />
+                    <button
+                      onClick={() => { onDelete(); setMenuOpen(false) }}
+                      className="w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                    >
+                      <span>🗑️</span> Delete Group
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -610,6 +705,140 @@ function JoinRequestSection({ hasPendingRequest, joinMessage, setJoinMessage, on
           <button onClick={onJoinRequest} disabled={requestingJoin} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
             {requestingJoin ? "Submitting..." : "Request to Join"}
           </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function JoinRequestsTab({ requests, onAction }: {
+  requests: JoinRequest[]
+  onAction: (requestId: string, action: "approve" | "reject", comment: string) => void
+}) {
+  const [selectedRequest, setSelectedRequest] = useState<JoinRequest | null>(null)
+  const [actionType, setActionType] = useState<"approve" | "reject" | null>(null)
+  const [comment, setComment] = useState("")
+  const [processing, setProcessing] = useState(false)
+
+  const handleAction = async () => {
+    if (!selectedRequest || !actionType) return
+    if (actionType === "reject" && !comment.trim()) {
+      alert("Please provide a reason for rejection")
+      return
+    }
+    setProcessing(true)
+    await onAction(selectedRequest.id, actionType, comment)
+    setProcessing(false)
+    setSelectedRequest(null)
+    setActionType(null)
+    setComment("")
+  }
+
+  if (requests.length === 0) {
+    return (
+      <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+        <p className="text-4xl mb-4">✅</p>
+        <p>No pending join requests</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        Pending Join Requests ({requests.length})
+      </h3>
+      {requests.map((request) => (
+        <div key={request.id} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-xl">
+                {request.user.image ? (
+                  <img src={request.user.image} alt="" className="w-12 h-12 rounded-full object-cover" />
+                ) : (
+                  <span>{(request.user.fullName || request.user.email)[0].toUpperCase()}</span>
+                )}
+              </div>
+              <div>
+                <p className="font-medium text-gray-900 dark:text-white">
+                  {request.user.fullName || request.user.email}
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{request.user.email}</p>
+                <div className="flex flex-wrap gap-2 mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {request.user.gender && <span>👤 {request.user.gender}</span>}
+                  {request.user.marriedStatus && <span>💍 {request.user.marriedStatus}</span>}
+                  {request.user.dateOfBirth && (
+                    <span>🎂 {new Date().getFullYear() - new Date(request.user.dateOfBirth).getFullYear()} years</span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setSelectedRequest(request); setActionType("approve"); setComment("") }}
+                className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
+              >
+                ✓ Approve
+              </button>
+              <button
+                onClick={() => { setSelectedRequest(request); setActionType("reject"); setComment("") }}
+                className="px-3 py-1.5 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700"
+              >
+                ✗ Reject
+              </button>
+            </div>
+          </div>
+          {request.message && (
+            <div className="mt-3 p-3 bg-white dark:bg-gray-800 rounded border dark:border-gray-600">
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                <span className="font-medium">Message:</span> {request.message}
+              </p>
+            </div>
+          )}
+          <p className="text-xs text-gray-400 mt-2">
+            Requested {new Date(request.createdAt).toLocaleDateString()}
+          </p>
+        </div>
+      ))}
+
+      {/* Action Modal */}
+      {selectedRequest && actionType && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              {actionType === "approve" ? "✓ Approve Request" : "✗ Reject Request"}
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              {actionType === "approve"
+                ? `Add ${selectedRequest.user.fullName || selectedRequest.user.email} to the group?`
+                : `Reject request from ${selectedRequest.user.fullName || selectedRequest.user.email}?`}
+            </p>
+            <textarea
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder={actionType === "reject" ? "Reason for rejection (required)" : "Add a comment (optional)"}
+              rows={3}
+              className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white dark:border-gray-600 mb-4"
+              required={actionType === "reject"}
+            />
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => { setSelectedRequest(null); setActionType(null); setComment("") }}
+                className="px-4 py-2 border rounded-lg dark:border-gray-600 dark:text-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAction}
+                disabled={processing || (actionType === "reject" && !comment.trim())}
+                className={`px-4 py-2 text-white rounded-lg disabled:opacity-50 ${
+                  actionType === "approve" ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"
+                }`}
+              >
+                {processing ? "Processing..." : actionType === "approve" ? "Approve" : "Reject"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
