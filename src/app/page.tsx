@@ -1,4 +1,5 @@
 import Link from "next/link";
+import UpcomingEvents from "@/components/home/UpcomingEvents";
 
 export default function Home() {
   return (
@@ -76,21 +77,7 @@ export default function Home() {
             <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Upcoming Events</h2>
             <Link href="/events" className="text-blue-600 hover:text-blue-700 font-medium">View All →</Link>
           </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Placeholder event cards */}
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="border dark:border-gray-700 rounded-xl overflow-hidden hover:shadow-lg transition">
-                <div className="h-48 bg-gradient-to-br from-blue-100 to-indigo-200 dark:from-blue-900 dark:to-indigo-900 flex items-center justify-center">
-                  <span className="text-4xl">📅</span>
-                </div>
-                <div className="p-6">
-                  <p className="text-sm text-blue-600 dark:text-blue-400 font-medium mb-2">Coming Soon</p>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Event Title {i}</h3>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm">Join us for an upcoming community event. Stay tuned for more details!</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <UpcomingEvents />
         </div>
       </section>
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, use } from "react"
+import { useState, useEffect, use, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -66,6 +66,9 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
   const [hasPendingRequest, setHasPendingRequest] = useState(false)
   const [activeTab, setActiveTab] = useState<TabType>("members")
   const [showInviteModal, setShowInviteModal] = useState(false)
+  const [showCreateEventModal, setShowCreateEventModal] = useState(false)
+  const [showEditEventModal, setShowEditEventModal] = useState(false)
+  const [editingEvent, setEditingEvent] = useState<GroupEvent | null>(null)
 
   useEffect(() => {
     fetchGroup()
@@ -179,6 +182,34 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
     }
   }
 
+  const handleEventStatusChange = async (event: GroupEvent, newStatus: string) => {
+    const statusLabels: Record<string, string> = {
+      IN_PROGRESS: "start",
+      COMPLETED: "complete",
+      CANCELLED: "cancel"
+    }
+    const action = statusLabels[newStatus] || "update"
+
+    if (!confirm(`Are you sure you want to ${action} this event?`)) return
+
+    try {
+      const response = await fetch(`/api/groups/${id}/events/${event.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      })
+      const data = await response.json()
+      if (response.ok) {
+        setMessage({ type: "success", text: `Event ${action}ed successfully` })
+        fetchGroup() // Refresh the group data to get updated event lists
+      } else {
+        setMessage({ type: "error", text: data.error })
+      }
+    } catch {
+      setMessage({ type: "error", text: `Failed to ${action} event` })
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -202,7 +233,7 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4">
       <div className="max-w-4xl mx-auto">
         <Link href="/groups" className="text-blue-600 hover:underline mb-6 inline-block">← Back to Groups</Link>
-        
+
         {message.text && (
           <div className={`p-3 rounded-lg mb-6 ${message.type === "error" ? "bg-red-50 text-red-600" : "bg-green-50 text-green-600"}`}>
             {message.text}
@@ -231,6 +262,8 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
                   canDelete={canDelete}
                   onEdit={() => setEditing(true)}
                   onDelete={handleDelete}
+                  onInvite={() => setShowInviteModal(true)}
+                  onCreateEvent={() => setShowCreateEventModal(true)}
                 />
 
                 {/* Join Request Section for non-members */}
@@ -276,18 +309,33 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
                       members={group.members}
                       leaders={group.leaders}
                       canViewMembers={canViewMembers}
-                      canInvite={isLeader || isAdmin}
-                      onInviteClick={() => setShowInviteModal(true)}
                     />
                   )}
                   {activeTab === "inprogress" && (
-                    <EventsTab events={group.inProgressEvents} emptyMessage="No events in progress" />
+                    <EventsTab
+                      events={group.inProgressEvents}
+                      emptyMessage="No events in progress"
+                      canEdit={canEdit}
+                      onEditEvent={(event) => { setEditingEvent(event); setShowEditEventModal(true) }}
+                      onCompleteEvent={(event) => handleEventStatusChange(event, "COMPLETED")}
+                      onCancelEvent={(event) => handleEventStatusChange(event, "CANCELLED")}
+                    />
                   )}
                   {activeTab === "upcoming" && (
-                    <EventsTab events={group.upcomingEvents} emptyMessage="No upcoming events" />
+                    <EventsTab
+                      events={group.upcomingEvents}
+                      emptyMessage="No upcoming events"
+                      canEdit={canEdit}
+                      onEditEvent={(event) => { setEditingEvent(event); setShowEditEventModal(true) }}
+                      onStartEvent={(event) => handleEventStatusChange(event, "IN_PROGRESS")}
+                      onCancelEvent={(event) => handleEventStatusChange(event, "CANCELLED")}
+                    />
                   )}
                   {activeTab === "history" && (
-                    <EventsTab events={group.historyEvents} emptyMessage="No past events" />
+                    <EventsTab
+                      events={group.historyEvents}
+                      emptyMessage="No past events"
+                    />
                   )}
                 </div>
               </>
@@ -303,6 +351,36 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
             onSuccess={(msg) => {
               setMessage({ type: "success", text: msg })
               setShowInviteModal(false)
+            }}
+            onError={(msg) => setMessage({ type: "error", text: msg })}
+          />
+        )}
+
+        {/* Create Event Modal */}
+        {showCreateEventModal && (
+          <CreateEventModal
+            groupId={id}
+            onClose={() => setShowCreateEventModal(false)}
+            onSuccess={(msg) => {
+              setMessage({ type: "success", text: msg })
+              setShowCreateEventModal(false)
+              fetchGroup()
+            }}
+            onError={(msg) => setMessage({ type: "error", text: msg })}
+          />
+        )}
+
+        {/* Edit Event Modal */}
+        {showEditEventModal && editingEvent && (
+          <EditEventModal
+            groupId={id}
+            event={editingEvent}
+            onClose={() => { setShowEditEventModal(false); setEditingEvent(null) }}
+            onSuccess={(msg) => {
+              setMessage({ type: "success", text: msg })
+              setShowEditEventModal(false)
+              setEditingEvent(null)
+              fetchGroup()
             }}
             onError={(msg) => setMessage({ type: "error", text: msg })}
           />
@@ -368,9 +446,24 @@ function MarriedOnlyBadge({ marriedOnly }: { marriedOnly: boolean }) {
   )
 }
 
-function GroupHeader({ group, canEdit, canDelete, onEdit, onDelete }: {
-  group: Group; canEdit: boolean; canDelete: boolean; onEdit: () => void; onDelete: () => void
+function GroupHeader({ group, canEdit, canDelete, onEdit, onDelete, onInvite, onCreateEvent }: {
+  group: Group; canEdit: boolean; canDelete: boolean; onEdit: () => void; onDelete: () => void; onInvite: () => void; onCreateEvent: () => void
 }) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    if (menuOpen) {
+      document.addEventListener("mousedown", handleClickOutside)
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [menuOpen])
+
   return (
     <div className="flex justify-between items-start mb-6">
       <div>
@@ -400,9 +493,51 @@ function GroupHeader({ group, canEdit, canDelete, onEdit, onDelete }: {
         </div>
       </div>
       {canEdit && (
-        <div className="flex gap-2">
-          <button onClick={onEdit} className="px-4 py-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg">Edit</button>
-          {canDelete && <button onClick={onDelete} className="px-4 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg">Delete</button>}
+        <div className="relative" ref={menuRef}>
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
+            aria-label="Group actions"
+          >
+            <svg className="w-6 h-6 text-gray-600 dark:text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+              <circle cx="12" cy="5" r="2" />
+              <circle cx="12" cy="12" r="2" />
+              <circle cx="12" cy="19" r="2" />
+            </svg>
+          </button>
+          {menuOpen && (
+            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg py-2 border dark:border-gray-700 z-10">
+              <button
+                onClick={() => { onEdit(); setMenuOpen(false) }}
+                className="w-full text-left px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+              >
+                <span>✏️</span> Edit Group
+              </button>
+              <button
+                onClick={() => { onInvite(); setMenuOpen(false) }}
+                className="w-full text-left px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+              >
+                <span>👤</span> Invite Members
+              </button>
+              <button
+                onClick={() => { onCreateEvent(); setMenuOpen(false) }}
+                className="w-full text-left px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+              >
+                <span>📅</span> New Event
+              </button>
+              {canDelete && (
+                <>
+                  <hr className="my-2 border-gray-200 dark:border-gray-700" />
+                  <button
+                    onClick={() => { onDelete(); setMenuOpen(false) }}
+                    className="w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                  >
+                    <span>🗑️</span> Delete Group
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -481,26 +616,14 @@ function JoinRequestSection({ hasPendingRequest, joinMessage, setJoinMessage, on
   )
 }
 
-function MembersTab({ members, leaders, canViewMembers, canInvite, onInviteClick }: {
-  members: Member[]; leaders: Member[]; canViewMembers: boolean; canInvite?: boolean; onInviteClick?: () => void
+function MembersTab({ members, leaders, canViewMembers }: {
+  members: Member[]; leaders: Member[]; canViewMembers: boolean
 }) {
   if (!canViewMembers) {
     return <p className="text-gray-500 dark:text-gray-400 italic">Join this group to see member details</p>
   }
   return (
     <div className="space-y-6">
-      {/* Invite Button for Leaders */}
-      {canInvite && (
-        <div className="flex justify-start">
-          <button
-            onClick={onInviteClick}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-          >
-            <span className="text-lg">+</span>
-            <span>Invite Member</span>
-          </button>
-        </div>
-      )}
       {leaders?.length > 0 && (
         <div>
           <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase mb-3">Leaders ({leaders.length})</h4>
@@ -536,7 +659,30 @@ function MemberCard({ member }: { member: Member }) {
   )
 }
 
-function EventsTab({ events, emptyMessage }: { events: GroupEvent[]; emptyMessage: string }) {
+function EventsTab({ events, emptyMessage, canEdit, onEditEvent, onStartEvent, onCompleteEvent, onCancelEvent }: {
+  events: GroupEvent[];
+  emptyMessage: string;
+  canEdit?: boolean;
+  onEditEvent?: (event: GroupEvent) => void;
+  onStartEvent?: (event: GroupEvent) => void;
+  onCompleteEvent?: (event: GroupEvent) => void;
+  onCancelEvent?: (event: GroupEvent) => void;
+}) {
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpenMenuId(null)
+      }
+    }
+    if (openMenuId) {
+      document.addEventListener("mousedown", handleClickOutside)
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [openMenuId])
+
   if (!events || events.length === 0) {
     return <p className="text-gray-500 dark:text-gray-400 italic text-center py-8">{emptyMessage}</p>
   }
@@ -546,15 +692,73 @@ function EventsTab({ events, emptyMessage }: { events: GroupEvent[]; emptyMessag
     COMPLETED: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
     CANCELLED: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
   }
+
+  const canShowActions = (status: string) => canEdit && (status === "PLANNED" || status === "IN_PROGRESS")
+
   return (
     <div className="space-y-3">
       {events.map((event) => (
         <div key={event.id} className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
           <div className="flex justify-between items-start mb-2">
             <h4 className="font-semibold text-gray-900 dark:text-white">{event.title}</h4>
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[event.status] || statusColors.PLANNED}`}>
-              {event.status.replace("_", " ")}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[event.status] || statusColors.PLANNED}`}>
+                {event.status.replace("_", " ")}
+              </span>
+              {canShowActions(event.status) && (
+                <div className="relative" ref={openMenuId === event.id ? menuRef : undefined}>
+                  <button
+                    onClick={() => setOpenMenuId(openMenuId === event.id ? null : event.id)}
+                    className="p-1 text-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
+                    title="Event actions"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                    </svg>
+                  </button>
+                  {openMenuId === event.id && (
+                    <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 rounded-lg shadow-lg py-1 border dark:border-gray-700 z-10">
+                      {/* Edit action - for PLANNED and IN_PROGRESS */}
+                      {onEditEvent && (
+                        <button
+                          onClick={() => { onEditEvent(event); setOpenMenuId(null) }}
+                          className="w-full text-left px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 text-sm"
+                        >
+                          <span>✏️</span> Edit
+                        </button>
+                      )}
+                      {/* Start action - for PLANNED only */}
+                      {event.status === "PLANNED" && onStartEvent && (
+                        <button
+                          onClick={() => { onStartEvent(event); setOpenMenuId(null) }}
+                          className="w-full text-left px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 text-sm"
+                        >
+                          <span>▶️</span> Start
+                        </button>
+                      )}
+                      {/* Complete action - for IN_PROGRESS only */}
+                      {event.status === "IN_PROGRESS" && onCompleteEvent && (
+                        <button
+                          onClick={() => { onCompleteEvent(event); setOpenMenuId(null) }}
+                          className="w-full text-left px-4 py-2 text-green-600 dark:text-green-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 text-sm"
+                        >
+                          <span>✅</span> Complete
+                        </button>
+                      )}
+                      {/* Cancel action - for PLANNED and IN_PROGRESS */}
+                      {onCancelEvent && (
+                        <button
+                          onClick={() => { onCancelEvent(event); setOpenMenuId(null) }}
+                          className="w-full text-left px-4 py-2 text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 text-sm"
+                        >
+                          <span>❌</span> Cancel
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
           {event.description && <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{event.description}</p>}
           <div className="flex flex-wrap gap-4 text-sm text-gray-500">
@@ -732,6 +936,294 @@ function InviteModal({ groupId, onClose, onSuccess, onError }: {
             Close
           </button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+function CreateEventModal({ groupId, onClose, onSuccess, onError }: {
+  groupId: string
+  onClose: () => void
+  onSuccess: (msg: string) => void
+  onError: (msg: string) => void
+}) {
+  const [form, setForm] = useState({
+    title: "",
+    description: "",
+    eventTime: "",
+    eventType: "OFFLINE",
+    location: "",
+  })
+  const [saving, setSaving] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.title || !form.eventTime) {
+      onError("Title and event time are required")
+      return
+    }
+    setSaving(true)
+    try {
+      const response = await fetch(`/api/groups/${groupId}/events`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      })
+      const data = await response.json()
+      if (response.ok) {
+        onSuccess("Event created successfully")
+      } else {
+        onError(data.error || "Failed to create event")
+      }
+    } catch {
+      onError("Failed to create event")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inputClass = "w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white dark:border-gray-600"
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg">
+        <div className="p-6 border-b dark:border-gray-700">
+          <div className="flex justify-between items-center">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white">New Event</h3>
+            <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-2xl">×</button>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title *</label>
+            <input
+              type="text"
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              required
+              className={inputClass}
+              placeholder="Event title"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+            <textarea
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              rows={3}
+              className={inputClass}
+              placeholder="Event description"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Event Date & Time *</label>
+            <input
+              type="datetime-local"
+              value={form.eventTime}
+              onChange={(e) => setForm({ ...form, eventTime: e.target.value })}
+              required
+              className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Event Type</label>
+            <select
+              value={form.eventType}
+              onChange={(e) => setForm({ ...form, eventType: e.target.value })}
+              className={inputClass}
+            >
+              <option value="OFFLINE">📍 Offline (In-person)</option>
+              <option value="ONLINE">💻 Online</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {form.eventType === "ONLINE" ? "Meeting Link" : "Location"}
+            </label>
+            <input
+              type="text"
+              value={form.location}
+              onChange={(e) => setForm({ ...form, location: e.target.value })}
+              className={inputClass}
+              placeholder={form.eventType === "ONLINE" ? "https://zoom.us/..." : "123 Church St."}
+            />
+          </div>
+
+          <div className="flex gap-4 pt-4">
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              {saving ? "Creating..." : "Create Event"}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-6 py-2 border rounded-lg dark:border-gray-600 dark:text-gray-300"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+
+function EditEventModal({ groupId, event, onClose, onSuccess, onError }: {
+  groupId: string
+  event: GroupEvent
+  onClose: () => void
+  onSuccess: (msg: string) => void
+  onError: (msg: string) => void
+}) {
+  const [form, setForm] = useState({
+    title: event.title,
+    description: event.description || "",
+    eventTime: new Date(event.eventTime).toISOString().slice(0, 16),
+    eventType: event.eventType,
+    location: event.location || "",
+    status: event.status,
+  })
+  const [saving, setSaving] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.title || !form.eventTime) {
+      onError("Title and event time are required")
+      return
+    }
+    setSaving(true)
+    try {
+      const response = await fetch(`/api/groups/${groupId}/events/${event.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      })
+      const data = await response.json()
+      if (response.ok) {
+        onSuccess("Event updated successfully")
+      } else {
+        onError(data.error || "Failed to update event")
+      }
+    } catch {
+      onError("Failed to update event")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inputClass = "w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white dark:border-gray-600"
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg">
+        <div className="p-6 border-b dark:border-gray-700">
+          <div className="flex justify-between items-center">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white">Edit Event</h3>
+            <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-2xl">×</button>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title *</label>
+            <input
+              type="text"
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              required
+              className={inputClass}
+              placeholder="Event title"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+            <textarea
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              rows={3}
+              className={inputClass}
+              placeholder="Event description"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Event Date & Time *</label>
+            <input
+              type="datetime-local"
+              value={form.eventTime}
+              onChange={(e) => setForm({ ...form, eventTime: e.target.value })}
+              required
+              className={inputClass}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Event Type</label>
+              <select
+                value={form.eventType}
+                onChange={(e) => setForm({ ...form, eventType: e.target.value })}
+                className={inputClass}
+              >
+                <option value="OFFLINE">📍 Offline</option>
+                <option value="ONLINE">💻 Online</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+              <select
+                value={form.status}
+                onChange={(e) => setForm({ ...form, status: e.target.value })}
+                className={inputClass}
+              >
+                <option value="PLANNED">Planned</option>
+                <option value="IN_PROGRESS">In Progress</option>
+                <option value="COMPLETED">Completed</option>
+                <option value="CANCELLED">Cancelled</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {form.eventType === "ONLINE" ? "Meeting Link" : "Location"}
+            </label>
+            <input
+              type="text"
+              value={form.location}
+              onChange={(e) => setForm({ ...form, location: e.target.value })}
+              className={inputClass}
+              placeholder={form.eventType === "ONLINE" ? "https://zoom.us/..." : "123 Church St."}
+            />
+          </div>
+
+          <div className="flex gap-4 pt-4">
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              {saving ? "Saving..." : "Save Changes"}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-6 py-2 border rounded-lg dark:border-gray-600 dark:text-gray-300"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   )
