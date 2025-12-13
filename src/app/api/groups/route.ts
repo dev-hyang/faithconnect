@@ -6,12 +6,14 @@ import { prisma } from "@/lib/prisma"
 // PUBLIC - visible to all (ADMIN, MEMBER, GUEST)
 // INTERNAL - visible to ADMIN and MEMBER only
 // PRIVATE - visible to ADMIN only
+// Note: Users can always see groups they are members of or have pending join requests for
 
 // GET - List all fellowship groups based on user role visibility
 export async function GET() {
   try {
     const session = await auth()
     const userRole = session?.user?.role || "GUEST"
+    const userId = session?.user?.id
 
     // Build visibility filter based on user role
     let visibilityFilter: string[]
@@ -26,10 +28,19 @@ export async function GET() {
       visibilityFilter = ["PUBLIC"]
     }
 
+    // Build where clause: visibility-based OR user is member/has pending request
+    const whereClause = userId
+      ? {
+          OR: [
+            { visibility: { in: visibilityFilter } },
+            { members: { some: { userId } } },
+            { joinRequests: { some: { userId, status: "PENDING" } } },
+          ],
+        }
+      : { visibility: { in: visibilityFilter } }
+
     const groups = await prisma.fellowshipGroup.findMany({
-      where: {
-        visibility: { in: visibilityFilter }
-      },
+      where: whereClause,
       include: {
         createdBy: {
           select: { id: true, fullName: true, email: true },
@@ -91,7 +102,12 @@ export async function POST(request: NextRequest) {
       visibility = "PUBLIC",
       scheduleType = "ADHOC",
       scheduleDetails,
-      maxMembers
+      maxMembers,
+      maxLeaders = 10,
+      gender = "ALL",
+      minAge,
+      maxAge,
+      marriedOnly = false
     } = await request.json()
 
     if (!name) {
@@ -117,6 +133,32 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Validate gender
+    if (!["ALL", "FEMALE", "MALE"].includes(gender)) {
+      return NextResponse.json(
+        { error: "Invalid gender. Must be ALL, FEMALE, or MALE." },
+        { status: 400 }
+      )
+    }
+
+    // Validate maxMembers (range 3-20, default 10)
+    const validMaxMembers = Math.min(20, Math.max(3, parseInt(maxMembers) || 10))
+
+    // Validate maxLeaders (range 3-20)
+    const validMaxLeaders = Math.min(20, Math.max(3, parseInt(maxLeaders) || 10))
+
+    // Validate age range (0-120)
+    const validMinAge = minAge !== null && minAge !== undefined ? Math.min(120, Math.max(0, parseInt(minAge))) : null
+    const validMaxAge = maxAge !== null && maxAge !== undefined ? Math.min(120, Math.max(0, parseInt(maxAge))) : null
+
+    // Validate age range logic
+    if (validMinAge !== null && validMaxAge !== null && validMinAge > validMaxAge) {
+      return NextResponse.json(
+        { error: "Minimum age cannot be greater than maximum age." },
+        { status: 400 }
+      )
+    }
+
     const group = await prisma.fellowshipGroup.create({
       data: {
         name,
@@ -125,7 +167,12 @@ export async function POST(request: NextRequest) {
         visibility,
         scheduleType,
         scheduleDetails: scheduleDetails || null,
-        maxMembers: maxMembers || 20,
+        maxMembers: validMaxMembers,
+        maxLeaders: validMaxLeaders,
+        gender,
+        minAge: validMinAge,
+        maxAge: validMaxAge,
+        marriedOnly: Boolean(marriedOnly),
         createdById: session.user.id,
       },
       include: {

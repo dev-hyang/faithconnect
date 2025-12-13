@@ -26,8 +26,10 @@ export default function RegisterPage() {
     city: "",
     state: "",
     zipCode: "",
-    // Gender and faith info
+    // Gender and personal info
     gender: "",
+    dateOfBirth: "",
+    // Faith info
     isBaptized: false,
     whenBaptized: "",
     marriedStatus: "",
@@ -303,6 +305,12 @@ export default function RegisterPage() {
                   <option value="FEMALE">Female</option>
                 </select>
                 {fieldErrors.gender && <p className={errorTextClass}>{fieldErrors.gender}</p>}
+              </div>
+              <div>
+                <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Date of Birth
+                </label>
+                <input id="dateOfBirth" name="dateOfBirth" type="date" value={formData.dateOfBirth} onChange={handleChange} className={inputClass} />
               </div>
               <div>
                 <label htmlFor="marriedStatus" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

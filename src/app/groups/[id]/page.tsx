@@ -31,6 +31,11 @@ interface Group {
   scheduleDetails: string | null
   imageUrl: string | null
   maxMembers: number
+  maxLeaders: number
+  gender: string
+  minAge: number | null
+  maxAge: number | null
+  marriedOnly: boolean
   createdAt: string
   createdById: string
   createdBy: { id: string; fullName: string | null; email: string }
@@ -53,16 +58,18 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
   const [group, setGroup] = useState<Group | null>(null)
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
-  const [editForm, setEditForm] = useState({ name: "", description: "", visibility: "", scheduleType: "", scheduleDetails: "" })
+  const [editForm, setEditForm] = useState({ name: "", description: "", visibility: "", scheduleType: "", scheduleDetails: "", maxLeaders: 10, gender: "ALL" })
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState({ type: "", text: "" })
   const [requestingJoin, setRequestingJoin] = useState(false)
   const [joinMessage, setJoinMessage] = useState("")
   const [hasPendingRequest, setHasPendingRequest] = useState(false)
   const [activeTab, setActiveTab] = useState<TabType>("members")
+  const [showInviteModal, setShowInviteModal] = useState(false)
 
   useEffect(() => {
     fetchGroup()
+    checkPendingRequest()
   }, [id])
 
   const fetchGroup = async () => {
@@ -76,7 +83,9 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
           description: data.group.description || "",
           visibility: data.group.visibility || "PUBLIC",
           scheduleType: data.group.scheduleType || "ADHOC",
-          scheduleDetails: data.group.scheduleDetails || ""
+          scheduleDetails: data.group.scheduleDetails || "",
+          maxLeaders: data.group.maxLeaders || 10,
+          gender: data.group.gender || "ALL"
         })
       } else {
         setMessage({ type: "error", text: data.error })
@@ -85,6 +94,18 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
       setMessage({ type: "error", text: "Failed to load group" })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const checkPendingRequest = async () => {
+    try {
+      const response = await fetch(`/api/user/group-requests?groupId=${id}`)
+      const data = await response.json()
+      if (response.ok && data.hasPending) {
+        setHasPendingRequest(true)
+      }
+    } catch {
+      // Ignore errors - user might not be logged in
     }
   }
 
@@ -251,7 +272,13 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
 
                   {/* Tab Content */}
                   {activeTab === "members" && (
-                    <MembersTab members={group.members} leaders={group.leaders} canViewMembers={canViewMembers} />
+                    <MembersTab
+                      members={group.members}
+                      leaders={group.leaders}
+                      canViewMembers={canViewMembers}
+                      canInvite={isLeader || isAdmin}
+                      onInviteClick={() => setShowInviteModal(true)}
+                    />
                   )}
                   {activeTab === "inprogress" && (
                     <EventsTab events={group.inProgressEvents} emptyMessage="No events in progress" />
@@ -267,6 +294,19 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
             )}
           </div>
         </div>
+
+        {/* Invite Modal */}
+        {showInviteModal && (
+          <InviteModal
+            groupId={id}
+            onClose={() => setShowInviteModal(false)}
+            onSuccess={(msg) => {
+              setMessage({ type: "success", text: msg })
+              setShowInviteModal(false)
+            }}
+            onError={(msg) => setMessage({ type: "error", text: msg })}
+          />
+        )}
       </div>
     </div>
   )
@@ -288,15 +328,58 @@ function VisibilityBadge({ visibility }: { visibility: string }) {
   )
 }
 
+function GenderBadge({ gender }: { gender: string }) {
+  if (gender === "ALL") return null
+  const styles: Record<string, string> = {
+    FEMALE: "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400",
+    MALE: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  }
+  const icons: Record<string, string> = { FEMALE: "♀️", MALE: "♂️" }
+  return (
+    <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[gender]}`}>
+      {icons[gender]} {gender}
+    </span>
+  )
+}
+
+function AgeBadge({ minAge, maxAge }: { minAge: number | null; maxAge: number | null }) {
+  if (minAge === null && maxAge === null) return null
+  let label = ""
+  if (minAge !== null && maxAge !== null) {
+    label = `${minAge}-${maxAge}`
+  } else if (minAge !== null) {
+    label = `${minAge}+`
+  } else if (maxAge !== null) {
+    label = `≤${maxAge}`
+  }
+  return (
+    <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+      🎂 {label}
+    </span>
+  )
+}
+
+function MarriedOnlyBadge({ marriedOnly }: { marriedOnly: boolean }) {
+  if (!marriedOnly) return null
+  return (
+    <span className="px-2 py-1 rounded-full text-xs font-medium bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400">
+      💍 Married
+    </span>
+  )
+}
+
 function GroupHeader({ group, canEdit, canDelete, onEdit, onDelete }: {
   group: Group; canEdit: boolean; canDelete: boolean; onEdit: () => void; onDelete: () => void
 }) {
   return (
     <div className="flex justify-between items-start mb-6">
       <div>
-        <div className="flex items-center gap-3 mb-2">
+        <div className="flex flex-wrap items-center gap-2 mb-2">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{group.name}</h1>
           <VisibilityBadge visibility={group.visibility} />
+          <GenderBadge gender={group.gender} />
+          <AgeBadge minAge={group.minAge} maxAge={group.maxAge} />
+          <MarriedOnlyBadge marriedOnly={group.marriedOnly} />
         </div>
         <p className="text-gray-600 dark:text-gray-400 mb-3">{group.description || "No description"}</p>
         {group.scheduleDetails && (
@@ -306,6 +389,7 @@ function GroupHeader({ group, canEdit, canDelete, onEdit, onDelete }: {
         )}
         <div className="flex flex-wrap gap-4 mt-3 text-sm text-gray-500">
           <span>👥 {group.members?.length || 0}/{group.maxMembers} members</span>
+          <span>👑 {group.leaders?.length || 0}/{group.maxLeaders} leaders</span>
           <span>📅 {group.events?.length || 0} events</span>
           {group.leaders?.length > 0 && (
             <span>👤 {group.leaders.length === 1
@@ -326,7 +410,7 @@ function GroupHeader({ group, canEdit, canDelete, onEdit, onDelete }: {
 }
 
 function EditGroupForm({ editForm, setEditForm, onSubmit, onCancel, saving }: {
-  editForm: { name: string; description: string; visibility: string; scheduleType: string; scheduleDetails: string }
+  editForm: { name: string; description: string; visibility: string; scheduleType: string; scheduleDetails: string; maxLeaders: number; gender: string }
   setEditForm: (form: typeof editForm) => void
   onSubmit: (e: React.FormEvent) => void
   onCancel: () => void
@@ -337,6 +421,20 @@ function EditGroupForm({ editForm, setEditForm, onSubmit, onCancel, saving }: {
     <form onSubmit={onSubmit} className="space-y-4">
       <input type="text" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} required className={`${inputClass} text-2xl font-bold`} placeholder="Group Name" />
       <textarea value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} rows={3} className={inputClass} placeholder="Description" />
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Gender</label>
+          <select value={editForm.gender} onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })} className={inputClass}>
+            <option value="ALL">👥 All</option>
+            <option value="FEMALE">♀️ Female Only</option>
+            <option value="MALE">♂️ Male Only</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Max Leaders (3-20)</label>
+          <input type="number" min={3} max={20} value={editForm.maxLeaders} onChange={(e) => setEditForm({ ...editForm, maxLeaders: Math.min(20, Math.max(3, parseInt(e.target.value) || 10)) })} className={inputClass} />
+        </div>
+      </div>
       <select value={editForm.visibility} onChange={(e) => setEditForm({ ...editForm, visibility: e.target.value })} className={inputClass}>
         <option value="PUBLIC">🌐 Public</option>
         <option value="INTERNAL">🏠 Internal</option>
@@ -383,12 +481,26 @@ function JoinRequestSection({ hasPendingRequest, joinMessage, setJoinMessage, on
   )
 }
 
-function MembersTab({ members, leaders, canViewMembers }: { members: Member[]; leaders: Member[]; canViewMembers: boolean }) {
+function MembersTab({ members, leaders, canViewMembers, canInvite, onInviteClick }: {
+  members: Member[]; leaders: Member[]; canViewMembers: boolean; canInvite?: boolean; onInviteClick?: () => void
+}) {
   if (!canViewMembers) {
     return <p className="text-gray-500 dark:text-gray-400 italic">Join this group to see member details</p>
   }
   return (
     <div className="space-y-6">
+      {/* Invite Button for Leaders */}
+      {canInvite && (
+        <div className="flex justify-start">
+          <button
+            onClick={onInviteClick}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <span className="text-lg">+</span>
+            <span>Invite Member</span>
+          </button>
+        </div>
+      )}
       {leaders?.length > 0 && (
         <div>
           <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase mb-3">Leaders ({leaders.length})</h4>
@@ -418,6 +530,7 @@ function MemberCard({ member }: { member: Member }) {
       <div>
         <p className="font-medium text-gray-900 dark:text-white">{member.user.fullName || member.user.email}</p>
         <p className="text-sm text-gray-500 capitalize">{member.role.toLowerCase()}</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500">{member.user.email}</p>
       </div>
     </div>
   )
@@ -454,3 +567,172 @@ function EventsTab({ events, emptyMessage }: { events: GroupEvent[]; emptyMessag
   )
 }
 
+interface SearchUser {
+  id: string
+  email: string
+  fullName: string | null
+  image: string | null
+  gender: string | null
+  dateOfBirth: string | null
+  marriedStatus: string | null
+}
+
+function InviteModal({ groupId, onClose, onSuccess, onError }: {
+  groupId: string
+  onClose: () => void
+  onSuccess: (msg: string) => void
+  onError: (msg: string) => void
+}) {
+  const [searchQuery, setSearchQuery] = useState("")
+  const [searchResults, setSearchResults] = useState<SearchUser[]>([])
+  const [searching, setSearching] = useState(false)
+  const [inviting, setInviting] = useState<string | null>(null)
+  const [inviteMessage, setInviteMessage] = useState("")
+  const [statusMessages, setStatusMessages] = useState<string[]>([])
+
+  const handleSearch = async () => {
+    if (searchQuery.length < 2) return
+    setSearching(true)
+    setStatusMessages([])
+    try {
+      const response = await fetch(`/api/groups/${groupId}/users/search?q=${encodeURIComponent(searchQuery)}`)
+      const data = await response.json()
+      if (response.ok) {
+        setSearchResults(data.users)
+        // Build status messages for excluded users
+        const messages: string[] = []
+        if (data.alreadyMembers?.length > 0) {
+          data.alreadyMembers.forEach((u: { email: string; fullName: string | null }) => {
+            messages.push(`${u.fullName || u.email} is already a member`)
+          })
+        }
+        if (data.hasPendingInvite?.length > 0) {
+          data.hasPendingInvite.forEach((u: { email: string; fullName: string | null }) => {
+            messages.push(`${u.fullName || u.email} already has a pending invitation`)
+          })
+        }
+        if (data.hasPendingRequest?.length > 0) {
+          data.hasPendingRequest.forEach((u: { email: string; fullName: string | null }) => {
+            messages.push(`${u.fullName || u.email} already has a pending join request`)
+          })
+        }
+        setStatusMessages(messages)
+      } else {
+        onError(data.error)
+      }
+    } catch {
+      onError("Failed to search users")
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  const handleInvite = async (userId: string) => {
+    setInviting(userId)
+    try {
+      const response = await fetch(`/api/groups/${groupId}/invite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, message: inviteMessage }),
+      })
+      const data = await response.json()
+      if (response.ok) {
+        onSuccess(data.message)
+        setSearchResults((prev) => prev.filter((u) => u.id !== userId))
+      } else {
+        onError(data.error)
+      }
+    } catch {
+      onError("Failed to send invitation")
+    } finally {
+      setInviting(null)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg max-h-[80vh] overflow-hidden">
+        <div className="p-6 border-b dark:border-gray-700">
+          <div className="flex justify-between items-center">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white">Invite Member</h3>
+            <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-2xl">×</button>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {/* Search Input */}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              placeholder="Search by email..."
+              className="flex-1 px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white dark:border-gray-600"
+            />
+            <button
+              onClick={handleSearch}
+              disabled={searching || searchQuery.length < 2}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              {searching ? "..." : "Search"}
+            </button>
+          </div>
+
+          {/* Optional Message */}
+          <input
+            type="text"
+            value={inviteMessage}
+            onChange={(e) => setInviteMessage(e.target.value)}
+            placeholder="Add a message (optional)"
+            className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white dark:border-gray-600"
+          />
+
+          {/* Status Messages */}
+          {statusMessages.length > 0 && (
+            <div className="space-y-1">
+              {statusMessages.map((msg, idx) => (
+                <p key={idx} className="text-sm text-amber-600 dark:text-amber-400">⚠️ {msg}</p>
+              ))}
+            </div>
+          )}
+
+          {/* Search Results */}
+          <div className="max-h-64 overflow-y-auto space-y-2">
+            {searchResults.length === 0 && searchQuery.length >= 2 && !searching && statusMessages.length === 0 && (
+              <p className="text-gray-500 dark:text-gray-400 text-center py-4">No users found</p>
+            )}
+            {searchResults.map((user) => (
+              <div key={user.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+                    <span className="font-semibold text-blue-600 dark:text-blue-400">
+                      {user.fullName?.[0] || user.email[0].toUpperCase()}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900 dark:text-white">{user.fullName || user.email}</p>
+                    <p className="text-sm text-gray-500">{user.email}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleInvite(user.id)}
+                  disabled={inviting === user.id}
+                  className="px-3 py-1 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50"
+                >
+                  {inviting === user.id ? "..." : "Invite"}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="p-6 border-t dark:border-gray-700">
+          <button onClick={onClose} className="w-full px-4 py-2 border rounded-lg dark:border-gray-600 dark:text-gray-300">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}

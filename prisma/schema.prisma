@@ -34,6 +34,9 @@ model User {
   state         String?
   zipCode       String?
 
+  // Personal info
+  dateOfBirth   DateTime? // Date of birth (e.g., 2000-11-03)
+
   // Faith-related fields
   gender        String?   // MALE, FEMALE (required for all users)
   isBaptized    Boolean   @default(false)
@@ -53,6 +56,8 @@ model User {
   updatedGroups         FellowshipGroup[]      @relation("GroupUpdater")
   memberships           FellowshipMembership[]
   joinRequests          GroupJoinRequest[]
+  groupInvitations      GroupInvitation[]      @relation("InvitedUser")
+  sentInvitations       GroupInvitation[]      @relation("InvitedByUser")
   leaderRequests        GroupLeaderRequest[]   @relation("LeaderRequestUser")
   leaderReviews         GroupLeaderRequest[]   @relation("LeaderRequestReviewer")
   membershipRequests    MembershipRequest[]
@@ -107,7 +112,12 @@ model FellowshipGroup {
   scheduleType    String   @default("ADHOC")   // RECURRING, ADHOC
   scheduleDetails String?  // JSON string for recurring: {dayOfWeek, time, frequency} or text for adhoc
   imageUrl        String?
-  maxMembers      Int      @default(20)
+  maxMembers      Int      @default(10)  // Range 3-20, default 10
+  maxLeaders      Int      @default(10)  // Range 3-20, default 10
+  gender          String   @default("ALL")  // ALL, FEMALE, MALE
+  minAge          Int?     // Minimum age (0-120), null means no minimum
+  maxAge          Int?     // Maximum age (0-120), null means no maximum
+  marriedOnly     Boolean  @default(false)  // Only allow MARRIED users
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   createdById     String
@@ -118,6 +128,7 @@ model FellowshipGroup {
   members           FellowshipMembership[]
   events            GroupEvent[]
   joinRequests      GroupJoinRequest[]
+  invitations       GroupInvitation[]
   leaderRequests    GroupLeaderRequest[]
 }
 
@@ -146,6 +157,25 @@ model GroupJoinRequest {
 
   user  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   group FellowshipGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, groupId])
+}
+
+// Group Invitations - invitations sent by leaders to users
+// Status: PENDING, ACCEPTED, DECLINED, EXPIRED
+model GroupInvitation {
+  id          String   @id @default(cuid())
+  userId      String   // User being invited
+  groupId     String
+  invitedById String   // Leader who sent the invitation
+  status      String   @default("PENDING")  // PENDING, ACCEPTED, DECLINED, EXPIRED
+  message     String?  // Optional message from leader
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user      User            @relation("InvitedUser", fields: [userId], references: [id], onDelete: Cascade)
+  group     FellowshipGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  invitedBy User            @relation("InvitedByUser", fields: [invitedById], references: [id])
 
   @@unique([userId, groupId])
 }

@@ -18,6 +18,7 @@ export async function GET(
   try {
     const session = await auth()
     const userRole = session?.user?.role || "GUEST"
+    const userId = session?.user?.id
     const { id } = await params
 
     const group = await prisma.fellowshipGroup.findUnique({
@@ -37,6 +38,9 @@ export async function GET(
         events: {
           orderBy: { eventTime: "desc" },
         },
+        joinRequests: userId
+          ? { where: { userId, status: "PENDING" }, take: 1 }
+          : false,
         _count: {
           select: { members: true, events: true },
         },
@@ -47,8 +51,12 @@ export async function GET(
       return NextResponse.json({ error: "Group not found" }, { status: 404 })
     }
 
-    // Check visibility
-    if (!canViewGroup(group.visibility, userRole)) {
+    // Check if user is a member or has a pending join request
+    const isMember = userId && group.members.some((m) => m.userId === userId)
+    const hasPendingRequest = userId && group.joinRequests && group.joinRequests.length > 0
+
+    // Check visibility - allow if user is member/has pending request OR passes visibility check
+    if (!isMember && !hasPendingRequest && !canViewGroup(group.visibility, userRole)) {
       return NextResponse.json({ error: "You don't have permission to view this group" }, { status: 403 })
     }
 
@@ -114,7 +122,10 @@ export async function PUT(
       imageUrl,
       visibility,
       scheduleType,
-      scheduleDetails
+      scheduleDetails,
+      maxMembers,
+      maxLeaders,
+      gender
     } = await request.json()
 
     // Validate visibility if provided
@@ -133,6 +144,20 @@ export async function PUT(
       )
     }
 
+    // Validate gender if provided
+    if (gender && !["ALL", "FEMALE", "MALE"].includes(gender)) {
+      return NextResponse.json(
+        { error: "Invalid gender. Must be ALL, FEMALE, or MALE." },
+        { status: 400 }
+      )
+    }
+
+    // Validate maxMembers if provided (range 3-20)
+    const validMaxMembers = maxMembers !== undefined ? Math.min(20, Math.max(3, parseInt(maxMembers) || 10)) : undefined
+
+    // Validate maxLeaders if provided (range 3-20)
+    const validMaxLeaders = maxLeaders !== undefined ? Math.min(20, Math.max(3, parseInt(maxLeaders) || 10)) : undefined
+
     const updatedGroup = await prisma.fellowshipGroup.update({
       where: { id },
       data: {
@@ -142,6 +167,9 @@ export async function PUT(
         visibility: visibility || undefined,
         scheduleType: scheduleType || undefined,
         scheduleDetails: scheduleDetails !== undefined ? scheduleDetails : undefined,
+        maxMembers: validMaxMembers,
+        maxLeaders: validMaxLeaders,
+        gender: gender || undefined,
         updatedById: session.user.id,
       },
     })

@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 
+// Helper to calculate age from date of birth
+function calculateAge(dateOfBirth: Date): number {
+  const today = new Date()
+  let age = today.getFullYear() - dateOfBirth.getFullYear()
+  const monthDiff = today.getMonth() - dateOfBirth.getMonth()
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dateOfBirth.getDate())) {
+    age--
+  }
+  return age
+}
+
 // POST - Request to join a group (for guests)
 export async function POST(
   request: NextRequest,
@@ -23,6 +34,56 @@ export async function POST(
 
     if (!group) {
       return NextResponse.json({ error: "Group not found" }, { status: 404 })
+    }
+
+    // Get user details for eligibility check
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { gender: true, dateOfBirth: true, marriedStatus: true },
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    // Check gender restriction
+    if (group.gender !== "ALL" && user.gender !== group.gender) {
+      return NextResponse.json({
+        error: `This group is for ${group.gender.toLowerCase()} members only.`
+      }, { status: 400 })
+    }
+
+    // Check age restriction
+    if (group.minAge !== null || group.maxAge !== null) {
+      if (!user.dateOfBirth) {
+        return NextResponse.json({
+          error: "This group has age restrictions. Please update your date of birth in your profile."
+        }, { status: 400 })
+      }
+      const userAge = calculateAge(user.dateOfBirth)
+      const ageRange = group.minAge !== null && group.maxAge !== null
+        ? `${group.minAge}-${group.maxAge}`
+        : group.minAge !== null
+          ? `${group.minAge}+`
+          : `under ${group.maxAge! + 1}`
+
+      if (group.minAge !== null && userAge < group.minAge) {
+        return NextResponse.json({
+          error: `This group is dedicated for ages ${ageRange}. You must be at least ${group.minAge} years old to join.`
+        }, { status: 400 })
+      }
+      if (group.maxAge !== null && userAge > group.maxAge) {
+        return NextResponse.json({
+          error: `This group is dedicated for ages ${ageRange}. Maximum age is ${group.maxAge} years old.`
+        }, { status: 400 })
+      }
+    }
+
+    // Check married-only restriction
+    if (group.marriedOnly && user.marriedStatus !== "MARRIED") {
+      return NextResponse.json({
+        error: "This group is for married couples only."
+      }, { status: 400 })
     }
 
     // Check if already a member

@@ -10,6 +10,7 @@ export async function GET(
   try {
     const session = await auth()
     const userRole = session?.user?.role || "GUEST"
+    const userId = session?.user?.id
     const { id } = await params
     const { searchParams } = new URL(request.url)
     const status = searchParams.get("status") // PLANNED, IN_PROGRESS, COMPLETED, CANCELLED
@@ -17,19 +18,29 @@ export async function GET(
     // First check if group exists and user can view it
     const group = await prisma.fellowshipGroup.findUnique({
       where: { id },
-      select: { visibility: true },
+      select: {
+        visibility: true,
+        members: userId ? { where: { userId }, take: 1 } : false,
+        joinRequests: userId ? { where: { userId, status: "PENDING" }, take: 1 } : false,
+      },
     })
 
     if (!group) {
       return NextResponse.json({ error: "Group not found" }, { status: 404 })
     }
 
-    // Check visibility
-    if (group.visibility === "PRIVATE" && userRole !== "ADMIN") {
-      return NextResponse.json({ error: "Access denied" }, { status: 403 })
-    }
-    if (group.visibility === "INTERNAL" && !["ADMIN", "MEMBER"].includes(userRole)) {
-      return NextResponse.json({ error: "Access denied" }, { status: 403 })
+    // Check if user is a member or has a pending join request
+    const isMember = userId && group.members && group.members.length > 0
+    const hasPendingRequest = userId && group.joinRequests && group.joinRequests.length > 0
+
+    // Check visibility - allow if user is member/has pending request
+    if (!isMember && !hasPendingRequest) {
+      if (group.visibility === "PRIVATE" && userRole !== "ADMIN") {
+        return NextResponse.json({ error: "Access denied" }, { status: 403 })
+      }
+      if (group.visibility === "INTERNAL" && !["ADMIN", "MEMBER"].includes(userRole)) {
+        return NextResponse.json({ error: "Access denied" }, { status: 403 })
+      }
     }
 
     // Build status filter

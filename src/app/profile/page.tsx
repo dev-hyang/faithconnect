@@ -28,6 +28,8 @@ interface UserProfile {
   city: string | null
   state: string | null
   zipCode: string | null
+  gender: string | null
+  dateOfBirth: string | null
   isBaptized: boolean
   whenBaptized: string | null
   marriedStatus: string | null
@@ -45,6 +47,8 @@ interface FormData {
   city: string
   state: string
   zipCode: string
+  gender: string
+  dateOfBirth: string
   isBaptized: boolean
   whenBaptized: string
   marriedStatus: string
@@ -74,6 +78,8 @@ export default function ProfilePage() {
     city: "",
     state: "",
     zipCode: "",
+    gender: "",
+    dateOfBirth: "",
     isBaptized: false,
     whenBaptized: "",
     marriedStatus: "",
@@ -109,6 +115,8 @@ export default function ProfilePage() {
           city: data.user.city || "",
           state: data.user.state || "",
           zipCode: data.user.zipCode || "",
+          gender: data.user.gender || "",
+          dateOfBirth: data.user.dateOfBirth ? new Date(data.user.dateOfBirth).toISOString().split("T")[0] : "",
           isBaptized: data.user.isBaptized || false,
           whenBaptized: data.user.whenBaptized ? new Date(data.user.whenBaptized).toISOString().split("T")[0] : "",
           marriedStatus: data.user.marriedStatus || "",
@@ -192,6 +200,8 @@ export default function ProfilePage() {
         city: formData.city,
         state: formData.state,
         zipCode: formData.zipCode,
+        gender: formData.gender || null,
+        dateOfBirth: formData.dateOfBirth || null,
         isBaptized: formData.isBaptized,
         whenBaptized: formData.whenBaptized || null,
         marriedStatus: formData.marriedStatus || null,
@@ -325,6 +335,23 @@ export default function ProfilePage() {
                 </div>
               </div>
 
+              {/* Personal Info */}
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white pt-4">Personal Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>Gender</label>
+                  <select name="gender" value={formData.gender} onChange={handleChange} className={inputClass}>
+                    <option value="">-- Select --</option>
+                    <option value="MALE">Male</option>
+                    <option value="FEMALE">Female</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>Date of Birth</label>
+                  <input name="dateOfBirth" type="date" value={formData.dateOfBirth} onChange={handleChange} className={inputClass} />
+                </div>
+              </div>
+
               {/* Faith Info */}
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white pt-4">Faith Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -429,6 +456,15 @@ export default function ProfilePage() {
                 </div>
               </div>
 
+              {/* Personal Info */}
+              <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Personal Information</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <InfoItem label="Gender" value={profile?.gender} />
+                  <InfoItem label="Date of Birth" value={profile?.dateOfBirth ? new Date(profile.dateOfBirth).toLocaleDateString() : null} />
+                </div>
+              </div>
+
               {/* Faith Info */}
               <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Faith Information</h3>
@@ -440,17 +476,39 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {/* Account Info */}
+              {/* Membership Info */}
               <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Account Information</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Membership Information</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <InfoItem label="Member Since" value={profile?.joinedAt ? new Date(profile.joinedAt).toLocaleDateString() : (profile?.role === "GUEST" ? "Not a member yet" : null)} />
-                  <InfoItem label="Role" value={profile?.role} />
+                  <InfoItem label="Role" value={profile?.role || "-"} />
                 </div>
+                {profile?.role === "GUEST" && (
+                  <div className="mt-4">
+                    <Link href="/requests?action=apply" className="inline-block px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition">
+                      Membership Management
+                    </Link>
+                  </div>
+                )}
               </div>
             </div>
           )}
         </div>
+
+        {/* My Groups Panel - for MEMBER users */}
+        {profile?.role === "MEMBER" && (
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">👥 My Groups</h2>
+                <p className="text-gray-500 dark:text-gray-400 mt-1">Manage the groups you have joined</p>
+              </div>
+              <Link href="/my-groups" className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition">
+                View My Groups
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* My Requests Panel - for GUEST and MEMBER users */}
         {(profile?.role === "GUEST" || profile?.role === "MEMBER") && (
@@ -460,12 +518,12 @@ export default function ProfilePage() {
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">📝 My Requests</h2>
                 <p className="text-gray-500 dark:text-gray-400 mt-1">
                   {profile?.role === "GUEST"
-                    ? "Apply for membership or manage your requests"
+                    ? "Track your membership application status"
                     : "View your request history"}
                 </p>
               </div>
               <Link href="/requests" className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition">
-                View Requests
+                View My Requests
               </Link>
             </div>
           </div>

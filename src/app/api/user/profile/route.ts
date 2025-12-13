@@ -36,6 +36,9 @@ export async function GET() {
         city: true,
         state: true,
         zipCode: true,
+        // Personal info
+        gender: true,
+        dateOfBirth: true,
         // Faith-related fields
         isBaptized: true,
         whenBaptized: true,
@@ -107,6 +110,8 @@ export async function PUT(request: NextRequest) {
       city,
       state,
       zipCode,
+      gender,
+      dateOfBirth,
       isBaptized,
       whenBaptized,
       marriedStatus,
@@ -146,6 +151,12 @@ export async function PUT(request: NextRequest) {
     if (city !== undefined) updateData.city = city
     if (state !== undefined) updateData.state = state
     if (zipCode !== undefined) updateData.zipCode = zipCode
+
+    // Personal info
+    if (gender !== undefined) updateData.gender = gender
+    if (dateOfBirth !== undefined) {
+      updateData.dateOfBirth = dateOfBirth ? new Date(dateOfBirth) : null
+    }
 
     // Faith-related fields
     if (isBaptized !== undefined) updateData.isBaptized = isBaptized
@@ -242,6 +253,8 @@ export async function PUT(request: NextRequest) {
         city: true,
         state: true,
         zipCode: true,
+        gender: true,
+        dateOfBirth: true,
         isBaptized: true,
         whenBaptized: true,
         marriedStatus: true,
