@@ -88,27 +88,49 @@ export default function Header() {
                       </span>
                     </Link>
                     {session.user?.role === "ADMIN" ? (
-                      <Link
-                        href="/admin/dashboard"
-                        className="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                        onClick={() => setMenuOpen(false)}
-                      >
-                        <span className="flex items-center gap-2">
-                          <span>📋</span> Admin Dashboard
-                        </span>
-                      </Link>
+                      <>
+                        <Link
+                          href="/admin/dashboard"
+                          className="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          <span className="flex items-center gap-2">
+                            <span>📋</span> Admin Dashboard
+                          </span>
+                        </Link>
+                        <Link
+                          href="/my-events"
+                          className="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          <span className="flex items-center gap-2">
+                            <span>📅</span> My Events
+                          </span>
+                        </Link>
+                      </>
                     ) : (
                       <>
                         {session.user?.role === "MEMBER" && (
-                          <Link
-                            href="/my-groups"
-                            className="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                            onClick={() => setMenuOpen(false)}
-                          >
-                            <span className="flex items-center gap-2">
-                              <span>👥</span> My Groups
-                            </span>
-                          </Link>
+                          <>
+                            <Link
+                              href="/my-groups"
+                              className="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                              onClick={() => setMenuOpen(false)}
+                            >
+                              <span className="flex items-center gap-2">
+                                <span>👥</span> My Groups
+                              </span>
+                            </Link>
+                            <Link
+                              href="/my-events"
+                              className="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                              onClick={() => setMenuOpen(false)}
+                            >
+                              <span className="flex items-center gap-2">
+                                <span>📅</span> My Events
+                              </span>
+                            </Link>
+                          </>
                         )}
                         <Link
                           href="/requests"
@@ -176,9 +198,20 @@ export default function Header() {
                 <>
                   <Link href="/profile" className="px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg" onClick={() => setMenuOpen(false)}>👤 My Profile</Link>
                   {session.user?.role === "ADMIN" ? (
-                    <Link href="/admin/dashboard" className="px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg" onClick={() => setMenuOpen(false)}>📋 Admin Dashboard</Link>
+                    <>
+                      <Link href="/admin/dashboard" className="px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg" onClick={() => setMenuOpen(false)}>📋 Admin Dashboard</Link>
+                      <Link href="/my-events" className="px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg" onClick={() => setMenuOpen(false)}>📅 My Events</Link>
+                    </>
                   ) : (
-                    <Link href="/requests" className="px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg" onClick={() => setMenuOpen(false)}>📝 My Requests</Link>
+                    <>
+                      {session.user?.role === "MEMBER" && (
+                        <>
+                          <Link href="/my-groups" className="px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg" onClick={() => setMenuOpen(false)}>👥 My Groups</Link>
+                          <Link href="/my-events" className="px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg" onClick={() => setMenuOpen(false)}>📅 My Events</Link>
+                        </>
+                      )}
+                      <Link href="/requests" className="px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg" onClick={() => setMenuOpen(false)}>📝 My Requests</Link>
+                    </>
                   )}
                   <button onClick={() => signOut({ callbackUrl: "/" })} className="px-3 py-2 text-left text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">Sign Out</button>
                 </>
