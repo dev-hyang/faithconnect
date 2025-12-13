@@ -1,5 +1,6 @@
 import Link from "next/link";
 import UpcomingEvents from "@/components/home/UpcomingEvents";
+import TestimoniesPreview from "@/components/home/TestimoniesPreview";
 
 export default function Home() {
   return (
@@ -81,22 +82,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Photo Gallery Preview */}
-      <section className="py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Photo Gallery</h2>
-            <Link href="/gallery" className="text-blue-600 hover:text-blue-700 font-medium">View All →</Link>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-              <div key={i} className="aspect-square bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 rounded-lg flex items-center justify-center hover:opacity-80 transition cursor-pointer">
-                <span className="text-3xl">📷</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Testimonies Preview */}
+      <TestimoniesPreview />
 
       {/* Contact Section */}
       <section className="py-16 bg-blue-600 text-white">
@@ -125,7 +112,7 @@ export default function Home() {
                 <li><Link href="/" className="hover:text-white transition">Home</Link></li>
                 <li><Link href="/groups" className="hover:text-white transition">Fellowship Groups</Link></li>
                 <li><Link href="/events" className="hover:text-white transition">Events</Link></li>
-                <li><Link href="/gallery" className="hover:text-white transition">Gallery</Link></li>
+                <li><Link href="/testimonies" className="hover:text-white transition">Testimonies</Link></li>
               </ul>
             </div>
             <div>

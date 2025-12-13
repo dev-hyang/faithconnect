@@ -56,12 +56,15 @@ model User {
   updatedGroups         FellowshipGroup[]      @relation("GroupUpdater")
   memberships           FellowshipMembership[]
   joinRequests          GroupJoinRequest[]
+  reviewedJoinRequests  GroupJoinRequest[]     @relation("JoinRequestReviewer")
   groupInvitations      GroupInvitation[]      @relation("InvitedUser")
   sentInvitations       GroupInvitation[]      @relation("InvitedByUser")
   leaderRequests        GroupLeaderRequest[]   @relation("LeaderRequestUser")
   leaderReviews         GroupLeaderRequest[]   @relation("LeaderRequestReviewer")
   membershipRequests    MembershipRequest[]
   userRequests          UserRequest[]
+  testimonies           Testimony[]            @relation("TestimonyAuthor")
+  reviewedTestimonies   Testimony[]            @relation("TestimonyReviewer")
 }
 
 model Account {
@@ -147,16 +150,20 @@ model FellowshipMembership {
 
 // Join request status: PENDING, APPROVED, REJECTED
 model GroupJoinRequest {
-  id        String   @id @default(cuid())
-  userId    String
-  groupId   String
-  status    String   @default("PENDING")  // PENDING, APPROVED, REJECTED
-  message   String?  // Optional message from requester
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String    @id @default(cuid())
+  userId        String
+  groupId       String
+  status        String    @default("PENDING")  // PENDING, APPROVED, REJECTED
+  message       String?   // Optional message from requester
+  reviewedBy    String?   // Leader who reviewed
+  reviewedAt    DateTime?
+  reviewComment String?   // Comment from reviewer (required on rejection)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  user  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  group FellowshipGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group    FellowshipGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  reviewer User?           @relation("JoinRequestReviewer", fields: [reviewedBy], references: [id])
 
   @@unique([userId, groupId])
 }
@@ -294,4 +301,22 @@ model MembershipRequest {
   updatedAt       DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Testimonies - user-shared faith testimonies
+// Status: DRAFT, PENDING_APPROVAL, PUBLISHED, REJECTED, CANCELLED
+model Testimony {
+  id           String    @id @default(cuid())
+  title        String
+  description  String
+  status       String    @default("DRAFT")  // DRAFT, PENDING_APPROVAL, PUBLISHED, REJECTED, CANCELLED
+  userId       String
+  reviewedBy   String?   // Admin who reviewed
+  reviewedAt   DateTime?
+  adminComment String?   // Admin's comment (for rejection or approval notes)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user     User  @relation("TestimonyAuthor", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer User? @relation("TestimonyReviewer", fields: [reviewedBy], references: [id])
 }

@@ -5,8 +5,9 @@ import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import MembershipRequestsTab from "@/components/admin/MembershipRequestsTab"
 import UserManagementTab from "@/components/admin/UserManagementTab"
+import TestimonyRequestsTab from "@/components/admin/TestimonyRequestsTab"
 
-type TabType = "requests" | "users"
+type TabType = "requests" | "users" | "testimonies"
 
 export default function AdminDashboardPage() {
   const { data: session, status } = useSession()
@@ -43,6 +44,7 @@ export default function AdminDashboardPage() {
 
   const tabs = [
     { id: "requests" as TabType, label: "Membership Requests", icon: "📋" },
+    { id: "testimonies" as TabType, label: "Testimony Requests", icon: "✝️" },
     { id: "users" as TabType, label: "User Management", icon: "👥" },
   ]
 
@@ -76,6 +78,7 @@ export default function AdminDashboardPage() {
         {/* Tab Content */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
           {activeTab === "requests" && <MembershipRequestsTab />}
+          {activeTab === "testimonies" && <TestimonyRequestsTab />}
           {activeTab === "users" && <UserManagementTab />}
         </div>
       </div>
