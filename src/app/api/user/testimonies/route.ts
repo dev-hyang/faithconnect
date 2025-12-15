@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { title, description } = body
+    const { title, description, submitForApproval } = body
 
     if (!title?.trim()) {
       return NextResponse.json({ error: "Title is required" }, { status: 400 })
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
         title: title.trim(),
         description: description.trim(),
         userId: session.user.id,
-        status: "DRAFT",
+        status: submitForApproval ? "PENDING_APPROVAL" : "DRAFT",
       },
     })
 
@@ -75,7 +75,7 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json()
-    const { id, title, description, action } = body
+    const { id, title, description, action, submitForApproval } = body
 
     if (!id) {
       return NextResponse.json({ error: "Testimony ID is required" }, { status: 400 })
@@ -117,6 +117,11 @@ export async function PUT(request: Request) {
     const updateData: Record<string, unknown> = {}
     if (title?.trim()) updateData.title = title.trim()
     if (description?.trim()) updateData.description = description.trim()
+
+    // If submitForApproval is true, also change status to PENDING_APPROVAL
+    if (submitForApproval) {
+      updateData.status = "PENDING_APPROVAL"
+    }
 
     const updated = await prisma.testimony.update({
       where: { id },

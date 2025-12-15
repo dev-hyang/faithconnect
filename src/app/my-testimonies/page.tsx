@@ -304,22 +304,24 @@ function TestimonyModal({ testimony, onClose, onSuccess }: {
   const [title, setTitle] = useState(testimony?.title || "")
   const [description, setDescription] = useState(testimony?.description || "")
   const [submitting, setSubmitting] = useState(false)
+  const [submitAction, setSubmitAction] = useState<"save" | "submit">("save")
   const [error, setError] = useState("")
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, action: "save" | "submit" = "save") => {
     e.preventDefault()
     if (!title.trim() || !description.trim()) {
       setError("Title and description are required")
       return
     }
     setSubmitting(true)
+    setSubmitAction(action)
     setError("")
 
     try {
       const method = testimony ? "PUT" : "POST"
       const body = testimony
-        ? { id: testimony.id, title, description }
-        : { title, description }
+        ? { id: testimony.id, title, description, submitForApproval: action === "submit" }
+        : { title, description, submitForApproval: action === "submit" }
 
       const res = await fetch("/api/user/testimonies", {
         method,
@@ -378,8 +380,16 @@ function TestimonyModal({ testimony, onClose, onSuccess }: {
             <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition">
               Cancel
             </button>
-            <button type="submit" disabled={submitting} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50">
-              {submitting ? "Saving..." : "Save"}
+            <button type="submit" disabled={submitting} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition disabled:opacity-50">
+              {submitting && submitAction === "save" ? "Saving..." : "Save as Draft"}
+            </button>
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={(e) => handleSubmit(e, "submit")}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50"
+            >
+              {submitting && submitAction === "submit" ? "Submitting..." : "Save & Submit"}
             </button>
           </div>
         </form>
