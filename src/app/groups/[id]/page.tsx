@@ -386,6 +386,12 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
                       members={group.members}
                       leaders={group.leaders}
                       canViewMembers={canViewMembers}
+                      isLeader={isLeader || false}
+                      isAdmin={isAdmin}
+                      isMember={isMember || false}
+                      currentUserId={session?.user?.id}
+                      groupId={group.id}
+                      onMemberAction={fetchGroup}
                     />
                   )}
                   {activeTab === "inprogress" && (
@@ -845,19 +851,78 @@ function JoinRequestsTab({ requests, onAction }: {
   )
 }
 
-function MembersTab({ members, leaders, canViewMembers }: {
-  members: Member[]; leaders: Member[]; canViewMembers: boolean
+function MembersTab({ members, leaders, canViewMembers, isLeader, isAdmin, isMember, currentUserId, groupId, onMemberAction }: {
+  members: Member[]; leaders: Member[]; canViewMembers: boolean; isLeader: boolean; isAdmin: boolean; isMember: boolean; currentUserId?: string; groupId: string; onMemberAction: () => void
 }) {
+  const canManageMembers = isLeader || isAdmin
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [confirmAction, setConfirmAction] = useState<{ type: string; member: Member } | null>(null)
+
+  const handleTransferLeadership = async (targetMember: Member) => {
+    if (!confirm(`Are you sure you want to transfer leadership to ${targetMember.user.fullName || targetMember.user.email}? You will become a regular member.`)) return
+    setActionLoading(targetMember.id)
+    try {
+      const res = await fetch(`/api/groups/${groupId}/members`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "transfer_leadership", targetUserId: targetMember.userId }),
+      })
+      if (res.ok) {
+        onMemberAction()
+      } else {
+        const data = await res.json()
+        alert(data.error || "Failed to transfer leadership")
+      }
+    } catch {
+      alert("Failed to transfer leadership")
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleRemoveMember = async (targetMember: Member) => {
+    if (!confirm(`Are you sure you want to remove ${targetMember.user.fullName || targetMember.user.email} from the group?`)) return
+    setActionLoading(targetMember.id)
+    try {
+      const res = await fetch(`/api/groups/${groupId}/members`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: targetMember.userId }),
+      })
+      if (res.ok) {
+        onMemberAction()
+      } else {
+        const data = await res.json()
+        alert(data.error || "Failed to remove member")
+      }
+    } catch {
+      alert("Failed to remove member")
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   if (!canViewMembers) {
     return <p className="text-gray-500 dark:text-gray-400 italic">Join this group to see member details</p>
   }
+
   return (
     <div className="space-y-6">
       {leaders?.length > 0 && (
         <div>
           <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase mb-3">Leaders ({leaders.length})</h4>
           <div className="grid md:grid-cols-2 gap-3">
-            {leaders.map((member) => <MemberCard key={member.id} member={member} />)}
+            {leaders.map((member) => (
+              <MemberCard
+                key={member.id}
+                member={member}
+                isSelf={member.userId === currentUserId}
+                canManage={false}
+                actionLoading={actionLoading === member.id}
+                onTransferLeadership={() => handleTransferLeadership(member)}
+                onRemove={() => handleRemoveMember(member)}
+              />
+            ))}
           </div>
         </div>
       )}
@@ -865,7 +930,17 @@ function MembersTab({ members, leaders, canViewMembers }: {
         <div>
           <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase mb-3">Members ({members.length - (leaders?.length || 0)})</h4>
           <div className="grid md:grid-cols-2 gap-3">
-            {members.filter(m => m.role !== "LEADER").map((member) => <MemberCard key={member.id} member={member} />)}
+            {members.filter(m => m.role !== "LEADER").map((member) => (
+              <MemberCard
+                key={member.id}
+                member={member}
+                isSelf={member.userId === currentUserId}
+                canManage={canManageMembers && member.userId !== currentUserId}
+                actionLoading={actionLoading === member.id}
+                onTransferLeadership={() => handleTransferLeadership(member)}
+                onRemove={() => handleRemoveMember(member)}
+              />
+            ))}
           </div>
         </div>
       )}
@@ -873,17 +948,80 @@ function MembersTab({ members, leaders, canViewMembers }: {
   )
 }
 
-function MemberCard({ member }: { member: Member }) {
+function MemberCard({ member, isSelf, canManage, actionLoading, onTransferLeadership, onRemove }: {
+  member: Member; isSelf: boolean; canManage: boolean; actionLoading: boolean;
+  onTransferLeadership: () => void; onRemove: () => void
+}) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [menuPosition, setMenuPosition] = useState<"bottom" | "top">("bottom")
+  const menuRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
+  const handleToggleMenu = () => {
+    if (!menuOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect()
+      const spaceBelow = window.innerHeight - rect.bottom
+      // If less than 120px below, show menu above
+      setMenuPosition(spaceBelow < 120 ? "top" : "bottom")
+    }
+    setMenuOpen(!menuOpen)
+  }
+
   return (
     <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
       <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
         <span className="font-semibold text-blue-600 dark:text-blue-400">{member.user.fullName?.[0] || member.user.email[0].toUpperCase()}</span>
       </div>
-      <div>
-        <p className="font-medium text-gray-900 dark:text-white">{member.user.fullName || member.user.email}</p>
+      <div className="flex-1">
+        <p className="font-medium text-gray-900 dark:text-white">
+          {member.user.fullName || member.user.email}
+          {isSelf && <span className="text-xs text-blue-500 ml-2">(You)</span>}
+        </p>
         <p className="text-sm text-gray-500 capitalize">{member.role.toLowerCase()}</p>
         <p className="text-xs text-gray-400 dark:text-gray-500">{member.user.email}</p>
       </div>
+      {canManage && (
+        <div className="relative" ref={menuRef}>
+          <button
+            ref={buttonRef}
+            onClick={handleToggleMenu}
+            disabled={actionLoading}
+            className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition"
+          >
+            {actionLoading ? (
+              <span className="animate-spin">⏳</span>
+            ) : (
+              <span className="text-gray-500">⋯</span>
+            )}
+          </button>
+          {menuOpen && (
+            <div className={`absolute right-0 ${menuPosition === "top" ? "bottom-full mb-1" : "top-full mt-1"} bg-white dark:bg-gray-800 rounded-lg shadow-lg border dark:border-gray-700 z-20 min-w-[160px]`}>
+              <button
+                onClick={() => { setMenuOpen(false); onTransferLeadership() }}
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-t-lg"
+              >
+                👑 Transfer Leadership
+              </button>
+              <button
+                onClick={() => { setMenuOpen(false); onRemove() }}
+                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-b-lg"
+              >
+                ❌ Remove
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
